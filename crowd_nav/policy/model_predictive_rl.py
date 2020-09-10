@@ -189,6 +189,7 @@ class ModelPredictiveRL(Policy):
         self.rotations = rotations
         self.action_space = action_space
 
+    #state only includes visible human states
     def predict(self, state):
         """
         A base class for all methods that takes pairwise joint state as input to value network.
@@ -212,7 +213,7 @@ class ModelPredictiveRL(Policy):
             max_action = None
             max_value = float('-inf')
             max_traj = None
-
+            #do_action_clip means to cut down some useless action
             if self.do_action_clip:
                 state_tensor = state.to_tensor(add_batch_size=True, device=self.device)
                 action_space_clipped = self.action_clip(state_tensor, self.action_space, self.planning_width)
@@ -268,6 +269,7 @@ class ModelPredictiveRL(Policy):
         # print(clipped_action_space)
         return clipped_action_space
 
+    #d-step planning
     def V_planning(self, state, depth, width):
         """ Plans n steps into future. Computes the value for the current state as well as the trajectories
         defined as a list of (state, action, reward) triples
@@ -277,7 +279,7 @@ class ModelPredictiveRL(Policy):
         current_state_value = self.value_estimator(state)
         if depth == 1:
             return current_state_value, [(state, None, None)]
-
+        #then depth of action_space is 1
         if self.do_action_clip:
             action_space_clipped = self.action_clip(state, self.action_space, width)
         else:

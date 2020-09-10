@@ -44,6 +44,7 @@ class BaseEnvConfig(object):
     humans.sensor = 'coordinates'
 
     robot = Config()
+    #机器人是否能被看见，目前看来，影响可能真的非常非常小，那么对于机器人而言，如何去做一个避障规划
     robot.visible = False
     robot.policy = 'none'
     robot.radius = 0.3
@@ -131,7 +132,7 @@ class BaseTrainConfig(object):
     trainer.optimizer = 'Adam'
 
     imitation_learning = Config()
-    imitation_learning.il_episodes = 2000
+    imitation_learning.il_episodes = 10#2000
     imitation_learning.il_policy = 'orca'
     imitation_learning.il_epochs = 50
     imitation_learning.il_learning_rate = 0.001

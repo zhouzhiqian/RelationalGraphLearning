@@ -376,6 +376,8 @@ class CrowdSim(gym.Env):
             ob = [other_human.get_observable_state() for other_human in self.humans if other_human != agent]
             if self.robot.visible:
                 ob += [self.robot.get_observable_state()]
+            else:
+                print("zzq and visible is false")
         return ob
 
     def render(self, mode='video', output_file=None):

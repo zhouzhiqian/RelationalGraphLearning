@@ -107,6 +107,7 @@ class ORCA(Policy):
         speed = np.linalg.norm(velocity)
         pref_vel = velocity / speed if speed > 1 else velocity
 
+        #完全的对称性可能引起堵塞，deadlock
         # Perturb a little to avoid deadlocks due to perfect symmetry.
         # perturb_angle = np.random.random() * 2 * np.pi
         # perturb_dist = np.random.random() * 0.01

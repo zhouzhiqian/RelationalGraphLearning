@@ -118,6 +118,7 @@ def main(args):
     model = policy.get_model()
     batch_size = train_config.trainer.batch_size
     optimizer = train_config.trainer.optimizer
+    print("zzq and ", policy_config.name)
     if policy_config.name == 'model_predictive_rl':
         trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
                               reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
@@ -141,6 +142,7 @@ def main(args):
     else:
         il_episodes = train_config.imitation_learning.il_episodes
         il_policy = train_config.imitation_learning.il_policy
+        print("rl_policy is ",il_policy)
         il_epochs = train_config.imitation_learning.il_epochs
         il_learning_rate = train_config.imitation_learning.il_learning_rate
         trainer.set_learning_rate(il_learning_rate)
@@ -185,6 +187,7 @@ def main(args):
             explorer.log('test', episode // evaluation_interval)
 
     episode = 0
+    print("zzq",train_episodes);
     while episode < train_episodes:
         if args.resume:
             epsilon = epsilon_end
