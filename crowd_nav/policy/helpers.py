@@ -11,3 +11,25 @@ def mlp(input_dim, mlp_dims, last_relu=False):
             layers.append(nn.ReLU())
     net = nn.Sequential(*layers)
     return net
+
+class LstmRNN(nn.Module):
+    """
+        Parameters：
+        - input_size: feature size
+        - hidden_size: number of hidden units
+        - output_size: number of output
+        - num_layers: layers of LSTM to stack
+    """
+    def __init__(self, input_size, hidden_size, output_size, num_layers=2):
+        super().__init__()
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers)  # utilize the LSTM model in torch.nn
+        self.forwardCalculation = nn.Linear(hidden_size, output_size)
+
+    def forward(self, _x):
+        x, _ = self.lstm(_x)  # _x is input, size (seq_len, batch, input_size)
+        s, b, h = x.shape  # x is output, size (seq_len, batch, hidden_size)
+        x = x.view(s * b, h)
+        x = self.forwardCalculation(x)
+        x = x.view(s, b, -1)
+        x = x[-1,:]
+        return x

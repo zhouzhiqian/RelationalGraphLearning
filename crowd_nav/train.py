@@ -14,6 +14,7 @@ from crowd_sim.envs.utils.robot import Robot
 from crowd_nav.utils.trainer import VNRLTrainer, MPRLTrainer
 from crowd_nav.utils.memory import ReplayMemory
 from crowd_nav.utils.explorer import Explorer
+from crowd_nav.utils.explorer import Explorer2
 from crowd_nav.policy.policy_factory import policy_factory
 
 
@@ -35,10 +36,10 @@ def main(args):
             shutil.rmtree(args.output_dir)
         else:
             key = input('Output directory already exists! Overwrite the folder? (y/n)')
-            if key == 'y' and not args.resume:
-                shutil.rmtree(args.output_dir)
-            else:
-                make_new_dir = False
+            # if key == 'y' and not args.resume:
+            shutil.rmtree(args.output_dir)
+            # else:
+            #     make_new_dir = False
     if make_new_dir:
         os.makedirs(args.output_dir)
         shutil.copy(args.config, os.path.join(args.output_dir, 'config.py'))
@@ -115,10 +116,10 @@ def main(args):
 
     # configure trainer and explorer
     memory = ReplayMemory(capacity)
+    pre_memory=ReplayMemory(capacity)
     model = policy.get_model()
     batch_size = train_config.trainer.batch_size
     optimizer = train_config.trainer.optimizer
-    print("zzq and ", policy_config.name)
     if policy_config.name == 'model_predictive_rl':
         trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
                               reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
@@ -128,6 +129,7 @@ def main(args):
     else:
         trainer = VNRLTrainer(model, memory, device, policy, batch_size, optimizer, writer)
     explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
+    explorer2=Explorer2(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
 
     # imitation learning
     if args.resume:
@@ -155,6 +157,7 @@ def main(args):
         il_policy.safety_space = safety_space
         robot.set_policy(il_policy)
         explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
+        explorer2.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
         trainer.optimize_epoch(il_epochs)
         policy.save_model(il_weight_file)
         logging.info('Finish imitation learning. Weights saved.')
@@ -162,75 +165,75 @@ def main(args):
 
     trainer.update_target_model(model)
 
-    # reinforcement learning
-    policy.set_env(env)
-    robot.set_policy(policy)
-    robot.print_info()
-    trainer.set_learning_rate(rl_learning_rate)
-    # fill the memory pool with some RL experience
-    if args.resume:
-        robot.policy.set_epsilon(epsilon_end)
-        explorer.run_k_episodes(100, 'train', update_memory=True, episode=0)
-        logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
-    episode = 0
-    best_val_reward = -1
-    best_val_model = None
-    # evaluate the model after imitation learning
+    # # reinforcement learning
+    # policy.set_env(env)
+    # robot.set_policy(policy)
+    # robot.print_info()
+    # trainer.set_learning_rate(rl_learning_rate)
+    # # fill the memory pool with some RL experience
+    # if args.resume:
+    #     robot.policy.set_epsilon(epsilon_end)
+    #     explorer.run_k_episodes(100, 'train', update_memory=True, episode=0)
+    #     logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
+    # episode = 0
+    # best_val_reward = -1
+    # best_val_model = None
+    # # evaluate the model after imitation learning
+    #
+    # if episode % evaluation_interval == 0:
+    #     logging.info('Evaluate the model instantly after imitation learning on the validation cases')
+    #     explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+    #     explorer.log('val', episode // evaluation_interval)
+    #
+    #     if args.test_after_every_eval:
+    #         explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+    #         explorer.log('test', episode // evaluation_interval)
 
-    if episode % evaluation_interval == 0:
-        logging.info('Evaluate the model instantly after imitation learning on the validation cases')
-        explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-        explorer.log('val', episode // evaluation_interval)
-
-        if args.test_after_every_eval:
-            explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
-            explorer.log('test', episode // evaluation_interval)
-
-    episode = 0
-    print("zzq",train_episodes);
-    while episode < train_episodes:
-        if args.resume:
-            epsilon = epsilon_end
-        else:
-            if episode < epsilon_decay:
-                epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
-            else:
-                epsilon = epsilon_end
-        robot.policy.set_epsilon(epsilon)
-
-        # sample k episodes into memory and optimize over the generated memory
-        explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
-        explorer.log('train', episode)
-
-        trainer.optimize_batch(train_batches, episode)
-        episode += 1
-
-        if episode % target_update_interval == 0:
-            trainer.update_target_model(model)
-        # evaluate the model
-        if episode % evaluation_interval == 0:
-            _, _, _, reward, _ = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-            explorer.log('val', episode // evaluation_interval)
-
-            if episode % checkpoint_interval == 0 and reward > best_val_reward:
-                best_val_reward = reward
-                best_val_model = copy.deepcopy(policy.get_state_dict())
-        # test after every evaluation to check how the generalization performance evolves
-            if args.test_after_every_eval:
-                explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
-                explorer.log('test', episode // evaluation_interval)
-
-        if episode != 0 and episode % checkpoint_interval == 0:
-            current_checkpoint = episode // checkpoint_interval - 1
-            save_every_checkpoint_rl_weight_file = rl_weight_file.split('.')[0] + '_' + str(current_checkpoint) + '.pth'
-            policy.save_model(save_every_checkpoint_rl_weight_file)
-
-    # # test with the best val model
-    if best_val_model is not None:
-        policy.load_state_dict(best_val_model)
-        torch.save(best_val_model, os.path.join(args.output_dir, 'best_val.pth'))
-        logging.info('Save the best val model with the reward: {}'.format(best_val_reward))
-    explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+    # episode = 0
+    # print("zzq",train_episodes);
+    # while episode < train_episodes:
+    #     if args.resume:
+    #         epsilon = epsilon_end
+    #     else:
+    #         if episode < epsilon_decay:
+    #             epsilon = epsilon_start + (epsilon_end - epsilon_start) / epsilon_decay * episode
+    #         else:
+    #             epsilon = epsilon_end
+    #     robot.policy.set_epsilon(epsilon)
+    #
+    #     # sample k episodes into memory and optimize over the generated memory
+    #     explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
+    #     explorer.log('train', episode)
+    #
+    #     trainer.optimize_batch(train_batches, episode)
+    #     episode += 1
+    #
+    #     if episode % target_update_interval == 0:
+    #         trainer.update_target_model(model)
+    #     # evaluate the model
+    #     if episode % evaluation_interval == 0:
+    #         _, _, _, reward, _ = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+    #         explorer.log('val', episode // evaluation_interval)
+    #
+    #         if episode % checkpoint_interval == 0 and reward > best_val_reward:
+    #             best_val_reward = reward
+    #             best_val_model = copy.deepcopy(policy.get_state_dict())
+    #     # test after every evaluation to check how the generalization performance evolves
+    #         if args.test_after_every_eval:
+    #             explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+    #             explorer.log('test', episode // evaluation_interval)
+    #
+    #     if episode != 0 and episode % checkpoint_interval == 0:
+    #         current_checkpoint = episode // checkpoint_interval - 1
+    #         save_every_checkpoint_rl_weight_file = rl_weight_file.split('.')[0] + '_' + str(current_checkpoint) + '.pth'
+    #         policy.save_model(save_every_checkpoint_rl_weight_file)
+    #
+    # # # test with the best val model
+    # if best_val_model is not None:
+    #     policy.load_state_dict(best_val_model)
+    #     torch.save(best_val_model, os.path.join(args.output_dir, 'best_val.pth'))
+    #     logging.info('Save the best val model with the reward: {}'.format(best_val_reward))
+    # explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
 
 
 if __name__ == '__main__':
