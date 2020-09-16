@@ -13,13 +13,6 @@ def mlp(input_dim, mlp_dims, last_relu=False):
     return net
 
 class LstmRNN(nn.Module):
-    """
-        Parameters：
-        - input_size: feature size
-        - hidden_size: number of hidden units
-        - output_size: number of output
-        - num_layers: layers of LSTM to stack
-    """
     def __init__(self, input_size, hidden_size, output_size, num_layers=2):
         super().__init__()
         self.lstm = nn.LSTM(input_size, hidden_size, num_layers)  # utilize the LSTM model in torch.nn

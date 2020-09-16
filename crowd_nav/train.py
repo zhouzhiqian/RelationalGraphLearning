@@ -11,7 +11,7 @@ import git
 import re
 from tensorboardX import SummaryWriter
 from crowd_sim.envs.utils.robot import Robot
-from crowd_nav.utils.trainer import VNRLTrainer, MPRLTrainer
+from crowd_nav.utils.trainer import VNRLTrainer, MPRLTrainer, LSTMRLTrainer
 from crowd_nav.utils.memory import ReplayMemory
 from crowd_nav.utils.explorer import Explorer
 from crowd_nav.utils.explorer import Explorer2
@@ -35,7 +35,7 @@ def main(args):
         if args.overwrite:
             shutil.rmtree(args.output_dir)
         else:
-            key = input('Output directory already exists! Overwrite the folder? (y/n)')
+            # key = input('Output directory already exists! Overwrite the folder? (y/n)')
             # if key == 'y' and not args.resume:
             shutil.rmtree(args.output_dir)
             # else:
@@ -120,8 +120,15 @@ def main(args):
     model = policy.get_model()
     batch_size = train_config.trainer.batch_size
     optimizer = train_config.trainer.optimizer
+    test_flag=False
     if policy_config.name == 'model_predictive_rl':
-        trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
+        if test_flag==True:
+            trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
+                                  reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
+                                  freeze_state_predictor=train_config.train.freeze_state_predictor,
+                                  detach_state_predictor=train_config.train.detach_state_predictor,
+                                  share_graph_model=policy_config.model_predictive_rl.share_graph_model)
+        trainer2 = LSTMRLTrainer(model, policy.state_predictor, memory,pre_memory, device, policy, writer, batch_size, optimizer, env.human_num,
                               reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
                               freeze_state_predictor=train_config.train.freeze_state_predictor,
                               detach_state_predictor=train_config.train.detach_state_predictor,
@@ -129,7 +136,7 @@ def main(args):
     else:
         trainer = VNRLTrainer(model, memory, device, policy, batch_size, optimizer, writer)
     explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
-    explorer2=Explorer2(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
+    explorer2= Explorer2(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
 
     # imitation learning
     if args.resume:
@@ -147,7 +154,9 @@ def main(args):
         print("rl_policy is ",il_policy)
         il_epochs = train_config.imitation_learning.il_epochs
         il_learning_rate = train_config.imitation_learning.il_learning_rate
-        trainer.set_learning_rate(il_learning_rate)
+        if test_flag==True:
+            trainer.set_learning_rate(il_learning_rate)
+        trainer2.set_learning_rate(il_learning_rate)
         if robot.visible:
             safety_space = 0
         else:
@@ -158,12 +167,14 @@ def main(args):
         robot.set_policy(il_policy)
         explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
         explorer2.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
-        trainer.optimize_epoch(il_epochs)
+        if test_flag == True:
+            trainer.optimize_epoch(il_epochs)
+        trainer2.optimize_epoch(il_epochs)
         policy.save_model(il_weight_file)
         logging.info('Finish imitation learning. Weights saved.')
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
 
-    trainer.update_target_model(model)
+    # trainer2.update_target_model(model)
 
     # # reinforcement learning
     # policy.set_env(env)

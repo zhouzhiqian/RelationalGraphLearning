@@ -3,6 +3,7 @@ import logging
 import copy
 import torch
 from tqdm import tqdm
+import numpy as np
 from crowd_sim.envs.utils.info import *
 
 
@@ -192,7 +193,7 @@ class Explorer2(object):
             while not done:
                 action = self.robot.act(ob)
                 ob, reward, done, info = self.env.step(action)
-                states.append(self.robot.policy.last_state)
+                states.append(self.target_policy.transform(self.robot.policy.last_state))
                 actions.append(action)
                 rewards.append(reward)
 
@@ -218,21 +219,22 @@ class Explorer2(object):
                 # 舍弃掉长度过短的轨迹
                 if len(states) > 15:
                     train_state_seqs = [states[i-10:i] for i in range(10,len(states))]
-                    pre_state_seqs = [states[i] for i in range(10,len(states))]
-
-                    self.update_pre_memory(train_state_seqs, pre_state_seqs)
-                if isinstance(info, ReachGoal) or isinstance(info, Collision):
-                    # only add positive(success) or negative(collision) experience in experience set
-                    self.update_memory(states, actions, rewards, imitation_learning)
-
-            cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
-                                           * reward for t, reward in enumerate(rewards)]))
-            returns = []
-            for step in range(len(rewards)):
-                step_return = sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
-                                   * reward for t, reward in enumerate(rewards[step:])])
-                returns.append(step_return)
-            average_returns.append(average(returns))
+                    robot_state_seqs = [[train_state_seqs[i][j][0].detach().numpy() for j in range(len(train_state_seqs[i]))] for i in range(len(train_state_seqs))]
+                    human_state_seqs = [[train_state_seqs[i][j][1].detach().numpy() for j in range(len(train_state_seqs[i]))] for i in range(len(train_state_seqs))]
+                    pre_state_seqs = [[states[i]] for i in range(10,len(states))]
+                    pre_robot_state_seqs = [[pre_state_seqs[i][j][0].detach().numpy() for j in range(len(pre_state_seqs[i]))] for i in range(len(pre_state_seqs))]
+                    pre_human_state_seqs = [[pre_state_seqs[i][j][1].detach().numpy() for j in range(len(pre_state_seqs[i]))] for i in range(len(pre_state_seqs))]
+                    self.update_pre_memory(robot_state_seqs,human_state_seqs, pre_robot_state_seqs,pre_human_state_seqs)
+                # if isinstance(info, ReachGoal) or isinstance(info, Collision):
+                #     # only add positive(success) or negative(collision) experience in experience set
+                #     self.update_memory(states, actions, rewards, imitation_learning)
+            # cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref) * reward for t, reward in enumerate(rewards)]))
+            # returns = []
+            # for step in range(len(rewards)):
+            #     step_return = sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
+            #                        * reward for t, reward in enumerate(rewards[step:])])
+            #     returns.append(step_return)
+            # average_returns.append(average(returns))
 
             if pbar:
                 pbar.update(1)
@@ -290,13 +292,15 @@ class Explorer2(object):
             else:
                 self.memory.push((state, value, reward, next_state))
 
-    def update_pre_memory(self, train_state_seqs, pre_state_seqs):
+    def update_pre_memory(self, train_robot_state_seqs,train_human_state_seqs, pre_robot_state_seqs,pre_human_state_seqs):
         if self.pre_memory is None:
             raise ValueError('Predict Memory is not set!')
 
-        for i, train_state_seq in enumerate(train_state_seqs[:-1]):
-            pre_state_seq = pre_state_seqs[i]
-            self.pre_memory.push((train_state_seq,pre_state_seq))
+        for i, train_robot_state_seq in enumerate(train_robot_state_seqs):
+            train_human_state_seq=train_human_state_seqs[i]
+            pre_robot_state_seq=pre_robot_state_seqs[i]
+            pre_human_state_seq=pre_human_state_seqs[i]
+            self.pre_memory.push((train_robot_state_seq,train_human_state_seq,pre_robot_state_seq,pre_human_state_seq))
 
     def log(self, tag_prefix, global_step):
         sr, cr, time, reward, avg_return = self.statistics

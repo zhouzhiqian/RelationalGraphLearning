@@ -160,6 +160,178 @@ class MPRLTrainer(object):
 
         return average_v_loss, average_s_loss
 
+class LSTMRLTrainer(object):
+    def __init__(self, value_estimator, state_predictor, memory, pre_memory,device, policy, writer, batch_size, optimizer_str, human_num,
+                 reduce_sp_update_frequency, freeze_state_predictor, detach_state_predictor, share_graph_model):
+        """
+        Train the trainable model of a policy
+        """
+        self.value_estimator = value_estimator
+        self.state_predictor = state_predictor
+        self.device = device
+        self.writer = writer
+        self.target_policy = policy
+        self.target_model = None
+        self.criterion = nn.MSELoss().to(device)
+        self.memory = memory
+        self.pre_memory = pre_memory
+        self.data_loader = None
+        self.lstm_data_loader = None
+        self.batch_size = batch_size
+        self.optimizer_str = optimizer_str
+        self.reduce_sp_update_frequency = reduce_sp_update_frequency
+        self.state_predictor_update_interval = human_num
+        self.freeze_state_predictor = freeze_state_predictor
+        self.detach_state_predictor = detach_state_predictor
+        self.share_graph_model = share_graph_model
+        self.v_optimizer = None
+        self.s_optimizer = None
+
+        # for value update
+        self.gamma = 0.9
+        self.time_step = 0.25
+        self.v_pref = 1
+
+    def update_target_model(self, target_model):
+        self.target_model = copy.deepcopy(target_model)
+
+    def set_learning_rate(self, learning_rate):
+        if self.optimizer_str == 'Adam':
+            self.v_optimizer = optim.Adam(self.value_estimator.parameters(), lr=learning_rate)
+            if self.state_predictor.trainable:
+                self.s_optimizer = optim.Adam(self.state_predictor.parameters(), lr=learning_rate)
+        elif self.optimizer_str == 'SGD':
+            self.v_optimizer = optim.SGD(self.value_estimator.parameters(), lr=learning_rate, momentum=0.9)
+            if self.state_predictor.trainable:
+                self.s_optimizer = optim.SGD(self.state_predictor.parameters(), lr=learning_rate)
+        else:
+            raise NotImplementedError
+
+        if self.state_predictor.trainable:
+            logging.info('Lr: {} for parameters {} with {} optimizer'.format(learning_rate, ' '.join(
+                [name for name, param in list(self.value_estimator.named_parameters()) +
+                 list(self.state_predictor.named_parameters())]), self.optimizer_str))
+        else:
+            logging.info('Lr: {} for parameters {} with {} optimizer'.format(learning_rate, ' '.join(
+                [name for name, param in list(self.value_estimator.named_parameters())]), self.optimizer_str))
+
+    def optimize_epoch(self, num_epochs):
+        if self.v_optimizer is None:
+            raise ValueError('Learning rate is not set!')
+        if self.data_loader is None:
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+        if self.lstm_data_loader is None:
+            self.lstm_data_loader = DataLoader(self.pre_memory,self.batch_size,shuffle=True)
+
+        for epoch in range(num_epochs):
+            if epoch ==40:
+                print(epoch)
+            epoch_v_loss = 0
+            epoch_s_loss = 0
+            logging.debug('{}-th epoch starts'.format(epoch))
+
+            update_counter = 0
+            # for data in self.data_loader:
+            #     robot_states, human_states, values, _, _, next_human_states = data
+            #
+            #     # optimize value estimator
+            #     self.v_optimizer.zero_grad()
+            #     outputs = self.value_estimator((robot_states, human_states))
+            #     values = values.to(self.device)
+            #     loss = self.criterion(outputs, values)
+            #     loss.backward()
+            #     self.v_optimizer.step()
+            #     epoch_v_loss += loss.data.item()
+
+            for data in self.lstm_data_loader:
+                train_robot_state_seqs,train_human_state_seqs,_,pre_human_state_seqs=data
+                train_robot_state_seqs =[train_robot_state_seqs[i].numpy() for i in range(len(train_robot_state_seqs))]
+                train_human_state_seqs =[train_human_state_seqs[i].numpy() for i in range(len(train_human_state_seqs))]
+                pre_human_state_seqs   =[pre_human_state_seqs[i].numpy() for i in range(len(pre_human_state_seqs))]
+                train_robot_state_tensor=torch.Tensor(train_robot_state_seqs)
+                train_human_state_tensor=torch.Tensor(train_human_state_seqs)
+                pre_human_state_tensor = torch.Tensor(pre_human_state_seqs)
+                pre_human_state_tensor = pre_human_state_tensor[0,:,:,:]
+                # batch_size=train_robot_state_tensor.shape[0]
+                # seq_len=train_robot_state_tensor.shape[1]
+                # pre_len=pre_human_state_tensor.shape[1]
+                # feature_r_dims=train_robot_state_tensor.shape[2]*train_robot_state_tensor.shape[3]
+                # feature_h_dims=train_human_state_tensor.shape[2]*train_human_state_tensor.shape[3]
+                # train_robot_state_tensor= train_robot_state_tensor.reshape(batch_size,seq_len,feature_r_dims)
+                # train_human_state_tensor= train_human_state_tensor.reshape(batch_size,seq_len,feature_h_dims)
+                # pre_human_state_tensor  = pre_human_state_tensor.reshape(batch_size,pre_len,feature_h_dims)
+                # optimize state predictor
+                if self.state_predictor.trainable:
+                    update_state_predictor = True
+                    if update_counter % self.state_predictor_update_interval != 0:
+                        update_state_predictor = False
+                    if update_state_predictor:
+                        self.s_optimizer.zero_grad()
+                        _, next_human_states_est = self.state_predictor((train_robot_state_tensor,train_human_state_tensor),None,detach =self.detach_state_predictor)
+                        loss = self.criterion(next_human_states_est, pre_human_state_tensor)
+                        loss.backward()
+                        self.s_optimizer.step()
+                        epoch_s_loss += loss.data.item()
+                    update_counter += 1
+
+            logging.debug('{}-th epoch ends'.format(epoch))
+            self.writer.add_scalar('IL/epoch_v_loss', epoch_v_loss / len(self.pre_memory), epoch)
+            self.writer.add_scalar('IL/epoch_s_loss', epoch_s_loss / len(self.pre_memory), epoch)
+            logging.info('Average loss in epoch %d: %.2E, %.2E', epoch, epoch_s_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
+        return
+
+    def optimize_batch(self, num_batches, episode):
+        if self.v_optimizer is None:
+            raise ValueError('Learning rate is not set!')
+        if self.data_loader is None:
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+        v_losses = 0
+        s_losses = 0
+        batch_count = 0
+        for data in self.data_loader:
+            robot_states, human_states, _, rewards, next_robot_states, next_human_states = data
+
+            # optimize value estimator
+            self.v_optimizer.zero_grad()
+            outputs = self.value_estimator((robot_states, human_states))
+
+            gamma_bar = pow(self.gamma, self.time_step * self.v_pref)
+            target_values = rewards + gamma_bar * self.target_model((next_robot_states, next_human_states))
+
+            # values = values.to(self.device)
+            loss = self.criterion(outputs, target_values)
+            loss.backward()
+            self.v_optimizer.step()
+            v_losses += loss.data.item()
+
+            # optimize state predictor
+            if self.state_predictor.trainable:
+                update_state_predictor = True
+                if self.freeze_state_predictor:
+                    update_state_predictor = False
+                elif self.reduce_sp_update_frequency and batch_count % self.state_predictor_update_interval == 0:
+                    update_state_predictor = False
+
+                if update_state_predictor:
+                    self.s_optimizer.zero_grad()
+                    _, next_human_states_est = self.state_predictor((robot_states, human_states), None,
+                                                                    detach=self.detach_state_predictor)
+                    loss = self.criterion(next_human_states_est, next_human_states)
+                    loss.backward()
+                    self.s_optimizer.step()
+                    s_losses += loss.data.item()
+
+            batch_count += 1
+            if batch_count > num_batches:
+                break
+
+        average_v_loss = v_losses / num_batches
+        average_s_loss = s_losses / num_batches
+        logging.info('Average loss : %.2E, %.2E', average_v_loss, average_s_loss)
+        self.writer.add_scalar('RL/average_v_loss', average_v_loss, episode)
+        self.writer.add_scalar('RL/average_s_loss', average_s_loss, episode)
+
+        return average_v_loss, average_s_loss
 
 class VNRLTrainer(object):
     def __init__(self, model, memory, device, policy, batch_size, optimizer_str, writer):
