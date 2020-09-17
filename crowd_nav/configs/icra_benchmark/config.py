@@ -132,9 +132,9 @@ class BaseTrainConfig(object):
     trainer.optimizer = 'Adam'
 
     imitation_learning = Config()
-    imitation_learning.il_episodes = 50#2000
+    imitation_learning.il_episodes = 2000#2000
     imitation_learning.il_policy = 'orca'
-    imitation_learning.il_epochs = 50
+    imitation_learning.il_epochs = 100
     imitation_learning.il_learning_rate = 0.001
     imitation_learning.safety_space = 0.15
 

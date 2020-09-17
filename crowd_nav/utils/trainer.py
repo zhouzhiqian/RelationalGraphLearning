@@ -233,30 +233,18 @@ class LSTMRLTrainer(object):
             update_counter = 0
             # for data in self.data_loader:
             #     robot_states, human_states, values, _, _, next_human_states = data
-            #
-            #     # optimize value estimator
-            #     self.v_optimizer.zero_grad()
-            #     outputs = self.value_estimator((robot_states, human_states))
-            #     values = values.to(self.device)
-            #     loss = self.criterion(outputs, values)
-            #     loss.backward()
-            #     self.v_optimizer.step()
-            #     epoch_v_loss += loss.data.item()
-
             for data in self.lstm_data_loader:
-                history_robot_states, history_human_states, reward, value, predict_robot_states, predict_human_states = data
-                # train_robot_state_tensor=torch.Tensor(train_robot_state_seqs)
-                # train_human_state_tensor=torch.Tensor(train_human_state_seqs)
-                # pre_human_state_tensor = torch.Tensor(pre_human_state_seqs)
-                # pre_human_state_tensor = pre_human_state_tensor[0,:,:,:]
-                # batch_size=train_robot_state_tensor.shape[0]
-                # seq_len=train_robot_state_tensor.shape[1]
-                # pre_len=pre_human_state_tensor.shape[1]
-                # feature_r_dims=train_robot_state_tensor.shape[2]*train_robot_state_tensor.shape[3]
-                # feature_h_dims=train_human_state_tensor.shape[2]*train_human_state_tensor.shape[3]
-                # train_robot_state_tensor= train_robot_state_tensor.reshape(batch_size,seq_len,feature_r_dims)
-                # train_human_state_tensor= train_human_state_tensor.reshape(batch_size,seq_len,feature_h_dims)
-                # pre_human_state_tensor  = pre_human_state_tensor.reshape(batch_size,pre_len,feature_h_dims)
+                history_robot_states, history_human_states, reward, values, predict_robot_states, predict_human_states = data
+                robot_state=history_robot_states[:,-1,:,:]
+                human_states=history_human_states[:,-1,:,:]
+                # optimize value estimator
+                self.v_optimizer.zero_grad()
+                outputs = self.value_estimator((robot_state, human_states))
+                values = values.to(self.device)
+                loss = self.criterion(outputs, values)
+                loss.backward()
+                self.v_optimizer.step()
+                epoch_v_loss += loss.data.item()
                 # optimize state predictor
                 predict_human_states=predict_human_states.squeeze()
                 if self.state_predictor.trainable:
@@ -275,7 +263,8 @@ class LSTMRLTrainer(object):
             logging.debug('{}-th epoch ends'.format(epoch))
             self.writer.add_scalar('IL/epoch_v_loss', epoch_v_loss / len(self.pre_memory), epoch)
             self.writer.add_scalar('IL/epoch_s_loss', epoch_s_loss / len(self.pre_memory), epoch)
-            logging.info('Average loss in epoch %d: %.2E, %.2E', epoch, epoch_s_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
+            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
+            logging.info('Average s_loss in epoch %d: %.2E, %.2E', epoch, epoch_s_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
         return
 
     def optimize_batch(self, num_batches, episode):

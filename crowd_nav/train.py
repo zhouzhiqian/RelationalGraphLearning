@@ -136,7 +136,7 @@ def main(args):
                                 share_graph_model=policy_config.model_predictive_rl.share_graph_model)
     else:
         trainer = VNRLTrainer(model, memory, device, policy, batch_size, optimizer, writer)
-    explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
+    # explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
     explorer2= Explorer2(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
 
     # imitation learning
@@ -166,7 +166,7 @@ def main(args):
         il_policy.multiagent_training = policy.multiagent_training
         il_policy.safety_space = safety_space
         robot.set_policy(il_policy)
-        explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
+        # explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
         explorer2.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
         if test_flag == True:
             trainer.optimize_epoch(il_epochs)
