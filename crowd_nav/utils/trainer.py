@@ -245,7 +245,6 @@ class LSTMRLTrainer(object):
 
             for data in self.lstm_data_loader:
                 history_robot_states, history_human_states, reward, value, predict_robot_states, predict_human_states = data
-
                 # train_robot_state_tensor=torch.Tensor(train_robot_state_seqs)
                 # train_human_state_tensor=torch.Tensor(train_human_state_seqs)
                 # pre_human_state_tensor = torch.Tensor(pre_human_state_seqs)
@@ -259,6 +258,7 @@ class LSTMRLTrainer(object):
                 # train_human_state_tensor= train_human_state_tensor.reshape(batch_size,seq_len,feature_h_dims)
                 # pre_human_state_tensor  = pre_human_state_tensor.reshape(batch_size,pre_len,feature_h_dims)
                 # optimize state predictor
+                predict_human_states=predict_human_states.squeeze()
                 if self.state_predictor.trainable:
                     update_state_predictor = True
                     if update_counter % self.state_predictor_update_interval != 0:
