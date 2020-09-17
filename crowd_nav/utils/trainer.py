@@ -218,8 +218,8 @@ class LSTMRLTrainer(object):
     def optimize_epoch(self, num_epochs):
         if self.v_optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.data_loader is None:
-            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+        # if self.data_loader is None:
+        #     self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
         if self.lstm_data_loader is None:
             self.lstm_data_loader = DataLoader(self.pre_memory,self.batch_size,shuffle=True)
 
@@ -244,14 +244,12 @@ class LSTMRLTrainer(object):
             #     epoch_v_loss += loss.data.item()
 
             for data in self.lstm_data_loader:
-                train_robot_state_seqs,train_human_state_seqs,_,pre_human_state_seqs=data
-                train_robot_state_seqs =[train_robot_state_seqs[i].numpy() for i in range(len(train_robot_state_seqs))]
-                train_human_state_seqs =[train_human_state_seqs[i].numpy() for i in range(len(train_human_state_seqs))]
-                pre_human_state_seqs   =[pre_human_state_seqs[i].numpy() for i in range(len(pre_human_state_seqs))]
-                train_robot_state_tensor=torch.Tensor(train_robot_state_seqs)
-                train_human_state_tensor=torch.Tensor(train_human_state_seqs)
-                pre_human_state_tensor = torch.Tensor(pre_human_state_seqs)
-                pre_human_state_tensor = pre_human_state_tensor[0,:,:,:]
+                history_robot_states, history_human_states, reward, value, predict_robot_states, predict_human_states = data
+
+                # train_robot_state_tensor=torch.Tensor(train_robot_state_seqs)
+                # train_human_state_tensor=torch.Tensor(train_human_state_seqs)
+                # pre_human_state_tensor = torch.Tensor(pre_human_state_seqs)
+                # pre_human_state_tensor = pre_human_state_tensor[0,:,:,:]
                 # batch_size=train_robot_state_tensor.shape[0]
                 # seq_len=train_robot_state_tensor.shape[1]
                 # pre_len=pre_human_state_tensor.shape[1]
@@ -267,8 +265,8 @@ class LSTMRLTrainer(object):
                         update_state_predictor = False
                     if update_state_predictor:
                         self.s_optimizer.zero_grad()
-                        _, next_human_states_est = self.state_predictor((train_robot_state_tensor,train_human_state_tensor),None,detach =self.detach_state_predictor)
-                        loss = self.criterion(next_human_states_est, pre_human_state_tensor)
+                        _, next_human_states_est = self.state_predictor((history_robot_states,history_human_states),None,detach =self.detach_state_predictor)
+                        loss = self.criterion(next_human_states_est, predict_human_states)
                         loss.backward()
                         self.s_optimizer.step()
                         epoch_s_loss += loss.data.item()

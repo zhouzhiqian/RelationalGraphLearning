@@ -158,8 +158,8 @@ class  LSTM_GAT(nn.Module):
         logging.info('Skip_connection: {}'.format(self.skip_connection))
         logging.info('Number of layers: {}'.format(self.num_layer))
 
-        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,2)
-        self.lstm_h = torch.nn.LSTM(human_state_dim,32,2)
+        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,2,batch_first=False)
+        self.lstm_h = torch.nn.LSTM(human_state_dim,32,2,batch_first=False)
         # self.w_r = mlp(robot_state_dim, wr_dims, last_relu=True)
         # self.w_h = mlp(human_state_dim, wh_dims, last_relu=True)
 
@@ -227,8 +227,9 @@ class  LSTM_GAT(nn.Module):
         """
         robot_state, human_states = state
         robot_state = robot_state.reshape(robot_state.shape[0],robot_state.shape[1],robot_state.shape[3])
-        human_states_list=[human_states[:,:,i,:] for i in range(human_states.shape[2])]
-        # compute feature matrix X
+        robot_state = robot_state.transpose(0,1)
+        human_states_list=[human_states[:,:,i,:].transpose(0,1) for i in range(human_states.shape[2])]
+        # compute feature matrix X [0] means the hidden features
         robot_state_embedings = self.lstm_r(robot_state)[0]
         #get the last output of lstm seq, batch_size,output_size
         robot_state_embedings = robot_state_embedings[-1,:,:]

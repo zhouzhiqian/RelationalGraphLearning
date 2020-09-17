@@ -128,11 +128,12 @@ def main(args):
                                   freeze_state_predictor=train_config.train.freeze_state_predictor,
                                   detach_state_predictor=train_config.train.detach_state_predictor,
                                   share_graph_model=policy_config.model_predictive_rl.share_graph_model)
+    # elif policy_config.name == 'lstm_predictive_rl':
         trainer2 = LSTMRLTrainer(model, policy.state_predictor, memory,pre_memory, device, policy, writer, batch_size, optimizer, env.human_num,
-                              reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
-                              freeze_state_predictor=train_config.train.freeze_state_predictor,
-                              detach_state_predictor=train_config.train.detach_state_predictor,
-                              share_graph_model=policy_config.model_predictive_rl.share_graph_model)
+                                reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
+                                freeze_state_predictor=train_config.train.freeze_state_predictor,
+                                detach_state_predictor=train_config.train.detach_state_predictor,
+                                share_graph_model=policy_config.model_predictive_rl.share_graph_model)
     else:
         trainer = VNRLTrainer(model, memory, device, policy, batch_size, optimizer, writer)
     explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
@@ -146,7 +147,7 @@ def main(args):
         rl_weight_file = os.path.join(args.output_dir, 'resumed_rl_model.pth')
         logging.info('Load reinforcement learning trained weights. Resume training')
     elif os.path.exists(il_weight_file):
-        model.load_state_dict(torch.load(il_weight_file))
+        policy.load_state_dict(torch.load(il_weight_file))
         logging.info('Load imitation learning trained weights.')
     else:
         il_episodes = train_config.imitation_learning.il_episodes

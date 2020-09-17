@@ -83,7 +83,7 @@ class LstmPredictor(nn.Module):
         else:
             next_robot_state = self.compute_next_state(state[0],action)
         # print(self.human_motion_predictor)
-        next_human_states = self.human_motion_predictor(state_embedding)
+        # next_human_states = self.human_motion_predictor(state_embedding)
         next_human_states = self.human_motion_predictor(state_embedding)[:,1:,:]
         next_observation = [next_robot_state,next_human_states]
         return next_observation
