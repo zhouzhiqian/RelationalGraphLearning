@@ -246,7 +246,6 @@ class LSTMRLTrainer(object):
                 self.v_optimizer.step()
                 epoch_v_loss += loss.data.item()
                 # optimize state predictor
-                predict_human_states=predict_human_states.squeeze()
                 if self.state_predictor.trainable:
                     update_state_predictor = True
                     if update_counter % self.state_predictor_update_interval != 0:
@@ -263,7 +262,7 @@ class LSTMRLTrainer(object):
             logging.debug('{}-th epoch ends'.format(epoch))
             self.writer.add_scalar('IL/epoch_v_loss', epoch_v_loss / len(self.pre_memory), epoch)
             self.writer.add_scalar('IL/epoch_s_loss', epoch_s_loss / len(self.pre_memory), epoch)
-            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
+            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.pre_memory),epoch_v_loss / len(self.pre_memory))
             logging.info('Average s_loss in epoch %d: %.2E, %.2E', epoch, epoch_s_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
         return
 

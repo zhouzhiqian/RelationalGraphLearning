@@ -15,8 +15,8 @@ class BaseEnvConfig(object):
     env = Config()
     env.time_limit = 30
     env.time_step = 0.25
-    env.val_size = 100
-    env.test_size = 500
+    env.val_size = 20
+    env.test_size = 50
     env.train_size = np.iinfo(np.uint32).max - 2000
     env.randomize_attributes = False
     env.robot_sensor_range = 5
@@ -134,7 +134,7 @@ class BaseTrainConfig(object):
     imitation_learning = Config()
     imitation_learning.il_episodes = 2000#2000
     imitation_learning.il_policy = 'orca'
-    imitation_learning.il_epochs = 100
+    imitation_learning.il_epochs = 500
     imitation_learning.il_learning_rate = 0.001
     imitation_learning.safety_space = 0.15
 

@@ -35,11 +35,11 @@ def main(args):
         if args.overwrite:
             shutil.rmtree(args.output_dir)
         else:
-            # key = input('Output directory already exists! Overwrite the folder? (y/n)')
-            # if key == 'y' and not args.resume:
-            shutil.rmtree(args.output_dir)
-            # else:
-            #     make_new_dir = False
+            key = input('Output directory already exists! Overwrite the folder? (y/n)')
+            if key == 'y' and not args.resume:
+                shutil.rmtree(args.output_dir)
+            else:
+                make_new_dir = False
     if make_new_dir:
         os.makedirs(args.output_dir)
         shutil.copy(args.config, os.path.join(args.output_dir, 'config.py'))
@@ -165,6 +165,7 @@ def main(args):
         il_policy = policy_factory[il_policy]()
         il_policy.multiagent_training = policy.multiagent_training
         il_policy.safety_space = safety_space
+        # now, the policy of robot is ORCA
         robot.set_policy(il_policy)
         # explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
         explorer2.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
@@ -175,31 +176,32 @@ def main(args):
         logging.info('Finish imitation learning. Weights saved.')
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
 
-    # trainer2.update_target_model(model)
+    trainer2.update_target_model(model)
 
-    # # reinforcement learning
-    # policy.set_env(env)
-    # robot.set_policy(policy)
-    # robot.print_info()
+    # reinforcement learning
+    policy.set_env(env)
+    #now, the policy of robot is RL algorithm
+    robot.set_policy(policy)
+    robot.print_info()
     # trainer.set_learning_rate(rl_learning_rate)
-    # # fill the memory pool with some RL experience
-    # if args.resume:
-    #     robot.policy.set_epsilon(epsilon_end)
-    #     explorer.run_k_episodes(100, 'train', update_memory=True, episode=0)
-    #     logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
-    # episode = 0
-    # best_val_reward = -1
-    # best_val_model = None
-    # # evaluate the model after imitation learning
-    #
-    # if episode % evaluation_interval == 0:
-    #     logging.info('Evaluate the model instantly after imitation learning on the validation cases')
-    #     explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-    #     explorer.log('val', episode // evaluation_interval)
-    #
-    #     if args.test_after_every_eval:
-    #         explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
-    #         explorer.log('test', episode // evaluation_interval)
+    # fill the memory pool with some RL experience
+    if args.resume:
+        robot.policy.set_epsilon(epsilon_end)
+        explorer2.run_k_episodes(100, 'train', update_memory=True, episode=0)
+        logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
+    episode = 0
+    best_val_reward = -1
+    best_val_model = None
+    # evaluate the model after imitation learning
+
+    if episode % evaluation_interval == 0:
+        logging.info('Evaluate the model instantly after imitation learning on the validation cases')
+        explorer2.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        explorer2.log('val', episode // evaluation_interval)
+
+        if args.test_after_every_eval:
+            explorer2.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+            explorer2.log('test', episode // evaluation_interval)
 
     # episode = 0
     # print("zzq",train_episodes);
@@ -269,5 +271,5 @@ if __name__ == '__main__':
     # parser.add_argument('--skip_connection', default=True, action='store_true')
 
     sys_args = parser.parse_args()
-
+    sys_args.test_after_every_eval = True
     main(sys_args)
