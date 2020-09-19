@@ -158,8 +158,8 @@ class  LSTM_GAT(nn.Module):
         logging.info('Skip_connection: {}'.format(self.skip_connection))
         logging.info('Number of layers: {}'.format(self.num_layer))
 
-        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,2,batch_first=False)
-        self.lstm_h = torch.nn.LSTM(human_state_dim,32,2,batch_first=False)
+        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,1,batch_first=False)
+        self.lstm_h = torch.nn.LSTM(human_state_dim,32,1,batch_first=False)
         # self.w_r = mlp(robot_state_dim, wr_dims, last_relu=True)
         # self.w_h = mlp(human_state_dim, wh_dims, last_relu=True)
 

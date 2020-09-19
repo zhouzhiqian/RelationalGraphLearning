@@ -224,8 +224,6 @@ class LSTMRLTrainer(object):
             self.lstm_data_loader = DataLoader(self.pre_memory,self.batch_size,shuffle=True)
 
         for epoch in range(num_epochs):
-            if epoch ==40:
-                print(epoch)
             epoch_v_loss = 0
             epoch_s_loss = 0
             logging.debug('{}-th epoch starts'.format(epoch))
@@ -269,22 +267,24 @@ class LSTMRLTrainer(object):
     def optimize_batch(self, num_batches, episode):
         if self.v_optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.data_loader is None:
-            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
+        if self.lstm_data_loader is None:
+            self.lstm_data_loader = DataLoader(self.pre_memory, self.batch_size, shuffle=True)
         v_losses = 0
         s_losses = 0
         batch_count = 0
-        for data in self.data_loader:
-            robot_states, human_states, _, rewards, next_robot_states, next_human_states = data
-
+        for data in self.lstm_data_loader:
+            history_robot_states, history_human_states, reward, values, predict_robot_states, predict_human_states = data
+            robot_state = history_robot_states[:, -1, :, :]
+            human_states = history_human_states[:, -1, :, :]
             # optimize value estimator
             self.v_optimizer.zero_grad()
-            outputs = self.value_estimator((robot_states, human_states))
+            outputs = self.value_estimator((robot_state, human_states))
 
+            # optimize value estimator
             gamma_bar = pow(self.gamma, self.time_step * self.v_pref)
-            target_values = rewards + gamma_bar * self.target_model((next_robot_states, next_human_states))
-
+            target_values = reward + gamma_bar * self.target_model((predict_robot_states[:,0,:,:], predict_human_states[:,0,:,:]))
             # values = values.to(self.device)
+
             loss = self.criterion(outputs, target_values)
             loss.backward()
             self.v_optimizer.step()
@@ -300,9 +300,8 @@ class LSTMRLTrainer(object):
 
                 if update_state_predictor:
                     self.s_optimizer.zero_grad()
-                    _, next_human_states_est = self.state_predictor((robot_states, human_states), None,
-                                                                    detach=self.detach_state_predictor)
-                    loss = self.criterion(next_human_states_est, next_human_states)
+                    _, next_human_states_est = self.state_predictor((history_robot_states,history_human_states),None,detach =self.detach_state_predictor)
+                    loss = self.criterion(next_human_states_est, predict_human_states)
                     loss.backward()
                     self.s_optimizer.step()
                     s_losses += loss.data.item()
