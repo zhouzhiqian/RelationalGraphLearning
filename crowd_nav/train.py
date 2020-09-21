@@ -174,7 +174,7 @@ def main(args):
         trainer2.optimize_epoch(il_epochs)
         policy.save_model(il_weight_file)
         logging.info('Finish imitation learning. Weights saved.')
-        logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
+        logging.info('Experience set size: %d/%d', len(pre_memory), pre_memory.capacity)
 
     trainer2.update_target_model(model)
 
@@ -222,7 +222,7 @@ def main(args):
         episode += 1
 
         if episode % target_update_interval == 0:
-            trainer.update_target_model(model)
+            trainer2.update_target_model(model)
         # evaluate the model
         if episode % evaluation_interval == 0:
             _, _, _, reward, _ = explorer2.run_k_episodes(env.case_size['val'], 'val', episode=episode)
@@ -271,4 +271,5 @@ if __name__ == '__main__':
 
     sys_args = parser.parse_args()
     sys_args.test_after_every_eval = True
+    sys_args.gpu= True
     main(sys_args)

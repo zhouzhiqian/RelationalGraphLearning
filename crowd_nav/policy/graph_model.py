@@ -234,9 +234,15 @@ class  LSTM_GAT(nn.Module):
         #get the last output of lstm seq, batch_size,output_size
         robot_state_embedings = robot_state_embedings[-1,:,:]
         robot_state_embedings = robot_state_embedings.reshape(1,robot_state_embedings.shape[0],robot_state_embedings.shape[1])
+        robot_state_embedings = robot_state_embedings
         robot_state_embedings = robot_state_embedings.transpose(0,1)
-        human_state_embedings = [self.lstm_h(human_states_list[i])[0][-1,:,:].detach().numpy() for i in range(len(human_states_list))]
-        human_state_embedings = torch.Tensor(human_state_embedings)
+        human_state_embedings = []
+        for i in range(len(human_states_list)):
+            if len(human_state_embedings)==0:
+                human_state_embedings=self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)
+            else:
+                human_state_embedings = torch.cat((human_state_embedings,self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)),dim=0)
+        # human_state_embedings = torch.Tensor(human_state_embedings)
         human_state_embedings = human_state_embedings.transpose(0,1)
         # human_state_embedings = torch.Tensor(human_state_embedings)
         X = torch.cat([robot_state_embedings, human_state_embedings], dim=1)

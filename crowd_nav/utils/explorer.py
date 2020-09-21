@@ -5,7 +5,7 @@ import torch
 from tqdm import tqdm
 import numpy as np
 from crowd_sim.envs.utils.info import *
-history_length = 10
+history_length = 4
 
 
 class Explorer(object):
@@ -292,25 +292,24 @@ class Explorer2(object):
         for i, state in enumerate(states[:-1]):
             reward = rewards[i]
             next_state = states[i + 1]
-            length = history_length
-            if i >= length:
+            if i >= history_length:
                 history_robot_states = torch.Tensor(
-                    [states[idx][0].detach().numpy() for idx in range(i - length + 1, i + 1)]).to(self.device)
+                    [states[idx][0].data.cpu().numpy() for idx in range(i - history_length + 1, i + 1)]).to(self.device)
                 history_human_states = torch.Tensor(
-                    [states[idx][1].detach().numpy() for idx in range(i - length + 1, i + 1)]).to(self.device)
-                predict_robot_states = torch.Tensor([states[i + 1][0].detach().numpy()]).to(self.device)
-                predict_human_states = torch.Tensor([states[i + 1][1].detach().numpy()]).to(self.device)
+                    [states[idx][1].data.cpu().numpy() for idx in range(i - history_length + 1, i + 1)]).to(self.device)
+                predict_robot_states = torch.Tensor([states[i + 1][0].data.cpu().numpy()]).to(self.device)
+                predict_human_states = torch.Tensor([states[i + 1][1].data.cpu().numpy()]).to(self.device)
             else:
-                com_robot_states = torch.Tensor(states[0][0].detach().numpy()).repeat(length - i - 1, 1, 1)
-                history_robot_states = torch.Tensor([states[idx][0].detach().numpy() for idx in range(0, i + 1)]).to(
+                com_robot_states = torch.Tensor(states[0][0].data.cpu().numpy()).repeat(history_length - i - 1, 1, 1).to(self.device)
+                history_robot_states = torch.Tensor([states[idx][0].data.cpu().numpy() for idx in range(0, i + 1)]).to(
                     self.device)
                 history_robot_states = torch.cat((com_robot_states, history_robot_states), dim=0)
-                com_human_states = torch.Tensor([states[0][1].detach().numpy()]).repeat(length - i - 1, 1, 1)
-                history_human_states = torch.Tensor([states[idx][1].detach().numpy() for idx in range(0, i + 1)]).to(
+                com_human_states = torch.Tensor([states[0][1].data.cpu().numpy()]).repeat(history_length - i - 1, 1, 1).to(self.device)
+                history_human_states = torch.Tensor([states[idx][1].data.cpu().numpy() for idx in range(0, i + 1)]).to(
                     self.device)
                 history_human_states = torch.cat((com_human_states, history_human_states), dim=0)
-                predict_robot_states = torch.Tensor([states[i + 1][0].detach().numpy()]).to(self.device)
-                predict_human_states = torch.Tensor([states[i + 1][1].detach().numpy()]).to(self.device)
+                predict_robot_states = torch.Tensor([states[i + 1][0].data.cpu().numpy()]).to(self.device)
+                predict_human_states = torch.Tensor([states[i + 1][1].data.cpu().numpy()]).to(self.device)
             if imitation_learning:
                 value = sum([pow(self.gamma, (t - i) * self.robot.time_step * self.robot.v_pref) * reward *
                              (1 if t >= i else 0) for t, reward in enumerate(rewards)])

@@ -10,7 +10,7 @@ from crowd_sim.envs.utils.utils import point_to_segment_dist
 from crowd_nav.policy.state_predictor import StatePredictor, LinearStatePredictor, LstmPredictor
 from crowd_nav.policy.graph_model import RGL, LSTM_GAT
 from crowd_nav.policy.value_estimator import ValueEstimator
-history_length = 10
+history_length = 4
 
 
 class ModelPredictiveRL(Policy):
@@ -566,19 +566,19 @@ class LstmPredictiveRL(Policy):
         state_robot_tensor = state_robot_tensor.unsqueeze(0)
         state_human_tensor = state_human_tensor.unsqueeze(0)
         if len(self.history_robot_states) == 0:
-            self.history_robot_states=torch.Tensor(self.history_robot_states)
+            self.history_robot_states=torch.Tensor(self.history_robot_states).to(self.device)
             self.history_robot_states = torch.cat((self.history_robot_states, state_robot_tensor), dim=1)
             self.history_robot_states.repeat(1,history_length,1,1)
         else:
-            self.history_robot_states = torch.cat((self.history_robot_states, state_robot_tensor), dim=1)
+            self.history_robot_states = torch.cat((self.history_robot_states, state_robot_tensor), dim=1).to(self.device)
             self.history_robot_states = self.history_robot_states[:,1:,:,:]
 
         if len(self.history_human_states) == 0:
-            self.history_human_states=torch.Tensor(self.history_human_states)
+            self.history_human_states=torch.Tensor(self.history_human_states).to(self.device)
             self.history_human_states = torch.cat((self.history_human_states, state_human_tensor), dim=1)
             self.history_human_states.repeat(1,history_length,1,1)
         else:
-            self.history_human_states = torch.cat((self.history_human_states, state_human_tensor), dim=1)
+            self.history_human_states = torch.cat((self.history_human_states, state_human_tensor), dim=1).to(self.device)
             self.history_human_states = self.history_human_states[:,1:,:,:]
 
         if self.phase is None or self.device is None:
