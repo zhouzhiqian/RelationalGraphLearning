@@ -221,13 +221,13 @@ class Explorer2(object):
                 if isinstance(info, ReachGoal) or isinstance(info, Collision):
                     # only add positive(success) or negative(collision) experience in experience set
                     self.update_pre_memory(states, actions, rewards, imitation_learning)
-            # cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref) * reward for t, reward in enumerate(rewards)]))
-            # returns = []
-            # for step in range(len(rewards)):
-            #     step_return = sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
-            #                        * reward for t, reward in enumerate(rewards[step:])])
-            #     returns.append(step_return)
-            # average_returns.append(average(returns))
+            cumulative_rewards.append(sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref) * reward for t, reward in enumerate(rewards)]))
+            returns = []
+            for step in range(len(rewards)):
+                step_return = sum([pow(self.gamma, t * self.robot.time_step * self.robot.v_pref)
+                                   * reward for t, reward in enumerate(rewards[step:])])
+                returns.append(step_return)
+            average_returns.append(average(returns))
 
 
             if pbar:
