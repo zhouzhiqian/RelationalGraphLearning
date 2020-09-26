@@ -81,7 +81,7 @@ class LstmPredictor(nn.Module):
         if action is None:
             next_robot_state = None
         else:
-            next_robot_state = self.compute_next_state(state[0],action)
+            next_robot_state = self.compute_next_state(state[0][:,-1,:,:],action)
             next_robot_state = next_robot_state.unsqueeze(1)
         # print(self.human_motion_predictor)
         # next_human_states = self.human_motion_predictor(state_embedding)

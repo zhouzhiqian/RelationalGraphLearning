@@ -143,11 +143,11 @@ def main(args):
     if args.resume:
         if not os.path.exists(rl_weight_file):
             logging.error('RL weights does not exist')
-        model.load_state_dict(torch.load(rl_weight_file))
+        policy.load_state_dict(torch.load(rl_weight_file))
         rl_weight_file = os.path.join(args.output_dir, 'resumed_rl_model.pth')
         logging.info('Load reinforcement learning trained weights. Resume training')
     elif os.path.exists(il_weight_file):
-        policy.load_state_dict(torch.load(il_weight_file))
+        policy.load_state_dict(torch.load(il_weight_file,map_location='cuda:0'))
         logging.info('Load imitation learning trained weights.')
     else:
         il_episodes = train_config.imitation_learning.il_episodes
@@ -189,7 +189,7 @@ def main(args):
         robot.policy.set_epsilon(epsilon_end)
         explorer2.run_k_episodes(100, 'train', update_memory=True, episode=0)
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
-    episode = 0
+    episode = 1
     best_val_reward = -1
     best_val_model = None
     # evaluate the model after imitation learning
@@ -203,7 +203,7 @@ def main(args):
             explorer2.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
             explorer2.log('test', episode // evaluation_interval)
 
-    episode = 0
+    episode = 1
 
     while episode < train_episodes:
         if args.resume:
@@ -270,6 +270,5 @@ if __name__ == '__main__':
     # parser.add_argument('--skip_connection', default=True, action='store_true')
 
     sys_args = parser.parse_args()
-    sys_args.test_after_every_eval = True
-    sys_args.gpu= True
+    # sys_args.test_after_every_eval = True
     main(sys_args)

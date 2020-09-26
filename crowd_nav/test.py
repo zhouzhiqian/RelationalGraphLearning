@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import gym
-from crowd_nav.utils.explorer import Explorer
+from crowd_nav.utils.explorer import Explorer,Explorer2
 from crowd_nav.policy.policy_factory import policy_factory
 from crowd_sim.envs.utils.robot import Robot
 from crowd_sim.envs.policy.orca import ORCA
@@ -85,7 +85,7 @@ def main(args):
     env.set_robot(robot)
     robot.time_step = env.time_step
     robot.set_policy(policy)
-    explorer = Explorer(env, robot, device, None, gamma=0.9)
+    explorer = Explorer2(env, robot, device, None, gamma=0.9)
 
     train_config = config.TrainConfig(args.debug)
     epsilon_end = train_config.train.epsilon_end
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--test_case', type=int, default=None)
     parser.add_argument('--square', default=False, action='store_true')
     parser.add_argument('--circle', default=False, action='store_true')
-    parser.add_argument('--video_file', type=str, default=None)
+    parser.add_argument('--video_file', type=str, default='ildemo')
     parser.add_argument('--video_dir', type=str, default=None)
     parser.add_argument('--traj', default=False, action='store_true')
     parser.add_argument('--debug', default=False, action='store_true')
@@ -171,5 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('--sparse_search', default=False, action='store_true')
 
     sys_args = parser.parse_args()
-
+    # sys_args.il=True
+    # sys_args.test_case=2
+    # sys_args.gpu=False
     main(sys_args)

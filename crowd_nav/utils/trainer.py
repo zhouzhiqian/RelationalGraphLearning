@@ -221,7 +221,8 @@ class LSTMRLTrainer(object):
         # if self.data_loader is None:
         #     self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
         if self.lstm_data_loader is None:
-            self.lstm_data_loader = DataLoader(self.pre_memory,self.batch_size,shuffle=True)
+            # self.lstm_data_loader = DataLoader(self.pre_memory,self.batch_size,shuffle=True)
+            self.lstm_data_loader = DataLoader(self.pre_memory, self.batch_size, shuffle=True)
 
         for epoch in range(num_epochs):
             epoch_v_loss = 0
@@ -252,6 +253,7 @@ class LSTMRLTrainer(object):
                         self.s_optimizer.zero_grad()
                         _, next_human_states_est = self.state_predictor((history_robot_states,history_human_states),None,detach =self.detach_state_predictor)
                         loss = self.criterion(next_human_states_est, predict_human_states)
+                        # print(loss)
                         loss.backward()
                         self.s_optimizer.step()
                         epoch_s_loss += loss.data.item()
@@ -260,8 +262,8 @@ class LSTMRLTrainer(object):
             logging.debug('{}-th epoch ends'.format(epoch))
             self.writer.add_scalar('IL/epoch_v_loss', epoch_v_loss / len(self.pre_memory), epoch)
             self.writer.add_scalar('IL/epoch_s_loss', epoch_s_loss / len(self.pre_memory), epoch)
-            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.pre_memory),epoch_v_loss / len(self.pre_memory))
-            logging.info('Average s_loss in epoch %d: %.2E, %.2E', epoch, epoch_s_loss / len(self.pre_memory),epoch_s_loss / len(self.pre_memory))
+            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.pre_memory),epoch_s_loss/ len(self.pre_memory))
+
         return
 
     def optimize_batch(self, num_batches, episode):
@@ -302,6 +304,11 @@ class LSTMRLTrainer(object):
                     self.s_optimizer.zero_grad()
                     _, next_human_states_est = self.state_predictor((history_robot_states,history_human_states),None,detach =self.detach_state_predictor)
                     loss = self.criterion(next_human_states_est, predict_human_states)
+                    # print(episode)
+                    # print(history_human_states[5,:-1,:,:])
+                    # print(next_human_states_est[5,:,:,:])
+                    # print(predict_human_states[5,:,:,:])
+                    # print(loss)
                     loss.backward()
                     self.s_optimizer.step()
                     s_losses += loss.data.item()

@@ -158,8 +158,10 @@ class  LSTM_GAT(nn.Module):
         logging.info('Skip_connection: {}'.format(self.skip_connection))
         logging.info('Number of layers: {}'.format(self.num_layer))
 
-        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,1,batch_first=False)
-        self.lstm_h = torch.nn.LSTM(human_state_dim,32,1,batch_first=False)
+        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,2,batch_first=False)
+        self.lstm_h = torch.nn.LSTM(human_state_dim,32,2,batch_first=False)
+        # self.mlp_r  = mlp(32,[32],last_relu=True)
+        # self.mlp_h  = mlp(32,[32],last_relu=True)
         # self.w_r = mlp(robot_state_dim, wr_dims, last_relu=True)
         # self.w_h = mlp(human_state_dim, wh_dims, last_relu=True)
 
@@ -234,18 +236,23 @@ class  LSTM_GAT(nn.Module):
         #get the last output of lstm seq, batch_size,output_size
         robot_state_embedings = robot_state_embedings[-1,:,:]
         robot_state_embedings = robot_state_embedings.reshape(1,robot_state_embedings.shape[0],robot_state_embedings.shape[1])
-        robot_state_embedings = robot_state_embedings
+        # robot_state_embedings = robot_state_embedings + self.mlp_r(robot_state_embedings)
         robot_state_embedings = robot_state_embedings.transpose(0,1)
         human_state_embedings = []
         for i in range(len(human_states_list)):
             if len(human_state_embedings)==0:
-                human_state_embedings=self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)
+                # tmp_state_embedings  = self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)
+                # tmp_state_embedings  = tmp_state_embedings + self.mlp_h(tmp_state_embedings)
+                human_state_embedings=  self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)
             else:
-                human_state_embedings = torch.cat((human_state_embedings,self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)),dim=0)
+                tmp_state_embedings  = self.lstm_h(human_states_list[i])[0][-1,:,:].unsqueeze(0)
+                # tmp_state_embedings = tmp_state_embedings + self.mlp_h(tmp_state_embedings)
+                human_state_embedings = torch.cat((human_state_embedings,tmp_state_embedings),dim=0)
         # human_state_embedings = torch.Tensor(human_state_embedings)
         human_state_embedings = human_state_embedings.transpose(0,1)
         # human_state_embedings = torch.Tensor(human_state_embedings)
         X = torch.cat([robot_state_embedings, human_state_embedings], dim=1)
+        # X = torch.nn.functional.relu(X)
 
         # compute matrix A
         if not self.layerwise_graph:

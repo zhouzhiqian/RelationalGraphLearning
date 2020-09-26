@@ -10,7 +10,7 @@ from crowd_sim.envs.utils.utils import point_to_segment_dist
 from crowd_nav.policy.state_predictor import StatePredictor, LinearStatePredictor, LstmPredictor
 from crowd_nav.policy.graph_model import RGL, LSTM_GAT
 from crowd_nav.policy.value_estimator import ValueEstimator
-history_length = 4
+history_length = 2
 
 
 class ModelPredictiveRL(Policy):
@@ -565,10 +565,11 @@ class LstmPredictiveRL(Policy):
         state_robot_tensor,state_human_tensor=state.to_tensor(add_batch_size=True, device=self.device)
         state_robot_tensor = state_robot_tensor.unsqueeze(0)
         state_human_tensor = state_human_tensor.unsqueeze(0)
+        # print(self.history_robot_states)
         if len(self.history_robot_states) == 0:
-            self.history_robot_states=torch.Tensor(self.history_robot_states).to(self.device)
+            self.history_robot_states = torch.Tensor(self.history_robot_states).to(self.device)
             self.history_robot_states = torch.cat((self.history_robot_states, state_robot_tensor), dim=1)
-            self.history_robot_states.repeat(1,history_length,1,1)
+            self.history_robot_states = self.history_robot_states.repeat(1,history_length,1,1)
         else:
             self.history_robot_states = torch.cat((self.history_robot_states, state_robot_tensor), dim=1).to(self.device)
             self.history_robot_states = self.history_robot_states[:,1:,:,:]
@@ -576,11 +577,13 @@ class LstmPredictiveRL(Policy):
         if len(self.history_human_states) == 0:
             self.history_human_states=torch.Tensor(self.history_human_states).to(self.device)
             self.history_human_states = torch.cat((self.history_human_states, state_human_tensor), dim=1)
-            self.history_human_states.repeat(1,history_length,1,1)
+            self.history_human_states = self.history_human_states.repeat(1,history_length,1,1)
         else:
             self.history_human_states = torch.cat((self.history_human_states, state_human_tensor), dim=1).to(self.device)
             self.history_human_states = self.history_human_states[:,1:,:,:]
-
+        # print(self.history_robot_states.shape)
+        # print(self.history_human_states.shape)
+        # print(history_length)
         if self.phase is None or self.device is None:
             raise AttributeError('Phase, device attributes have to be set!')
         if self.phase == 'train' and self.epsilon is None:
@@ -607,7 +610,7 @@ class LstmPredictiveRL(Policy):
 
             for action in action_space_clipped:
                 state_tensor = state.to_tensor(add_batch_size=True, device=self.device)
-                next_state = self.state_predictor((self.history_robot_states,self.history_human_states), action)
+                next_state = self.state_predictor((self.history_robot_states,self.history_human_states), action,True)
                 max_next_return, max_next_traj = self.V_planning(next_state, self.planning_depth, self.planning_width)
                 reward_est = self.estimate_reward(state, action)
                 value = reward_est + self.get_normalized_gamma() * max_next_return
@@ -623,6 +626,7 @@ class LstmPredictiveRL(Policy):
         else:
             self.last_state = state
             self.traj = max_traj
+            # print(self.traj)
 
         return max_action
 
@@ -682,11 +686,11 @@ class LstmPredictiveRL(Policy):
         trajs = []
 
         for action in action_space_clipped:
-            next_state_est = self.state_predictor(state, action)
+            # next_state_est = self.state_predictor(state, action)
             next_state_est = self.state_predictor(states, action)
             reward_est = self.estimate_reward(state, action)
             exp_states = (torch.cat((history_robot_states[:, 1:, :, :], next_state_est[0]), dim=1),
-                          torch.cat((history_human_states[:, 1, :, :], next_state_est[1]), dim=1))
+                          torch.cat((history_human_states[:, 1:, :, :], next_state_est[1]), dim=1))
             next_value, next_traj = self.V_planning(exp_states, depth - 1, self.planning_width)
             return_value = current_state_value / depth + (depth - 1) / depth * (self.get_normalized_gamma() * next_value + reward_est)
 

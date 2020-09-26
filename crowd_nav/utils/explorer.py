@@ -5,7 +5,7 @@ import torch
 from tqdm import tqdm
 import numpy as np
 from crowd_sim.envs.utils.info import *
-history_length = 4
+history_length = 2
 
 
 class Explorer(object):
@@ -322,9 +322,11 @@ class Explorer2(object):
             value = torch.Tensor([value]).to(self.device)
             reward = torch.Tensor([rewards[i]]).to(self.device)
             if self.target_policy.name == 'ModelPredictiveRL':
-                self.pre_memory.push((history_robot_states, history_human_states, reward, value,predict_robot_states, predict_human_states))
+                self.pre_memory.push((history_robot_states, history_human_states, reward, value, predict_robot_states,
+                                      predict_human_states))
             else:
                 self.memory.push((state, value, reward, next_state))
+
 
     def log(self, tag_prefix, global_step):
         sr, cr, time, reward, avg_return = self.statistics
