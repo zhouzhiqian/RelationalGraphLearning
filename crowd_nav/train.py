@@ -116,20 +116,18 @@ def main(args):
 
     # configure trainer and explorer
     memory = ReplayMemory(capacity)
-    pre_memory=ReplayMemory(capacity)
     model = policy.get_model()
     batch_size = train_config.trainer.batch_size
     optimizer = train_config.trainer.optimizer
     # test_flag=False
-    if policy_config.name == 'model_predictive_rl':
-        # if test_flag==True:
-        #     trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
-        #                           reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
-        #                           freeze_state_predictor=train_config.train.freeze_state_predictor,
-        #                           detach_state_predictor=train_config.train.detach_state_predictor,
-        #                           share_graph_model=policy_config.model_predictive_rl.share_graph_model)
-    # elif policy_config.name == 'lstm_predictive_rl':
+    if policy_config.name == 'lstm_predictive_rl':
         trainer = LSTMRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
+                                reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
+                                freeze_state_predictor=train_config.train.freeze_state_predictor,
+                                detach_state_predictor=train_config.train.detach_state_predictor,
+                                share_graph_model=policy_config.model_predictive_rl.share_graph_model)
+    elif policy_config.name == 'model_predictive_rl':
+        trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
                                 reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
                                 freeze_state_predictor=train_config.train.freeze_state_predictor,
                                 detach_state_predictor=train_config.train.detach_state_predictor,
@@ -137,7 +135,7 @@ def main(args):
     else:
         trainer = VNRLTrainer(model, memory, device, policy, batch_size, optimizer, writer)
     # explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
-    explorer= Explorer4LSTM(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
+    explorer= Explorer4LSTM(env,robot,device,writer,memory,policy.gamma,target_policy=policy)
 
     # imitation learning
     if args.resume:
@@ -173,7 +171,7 @@ def main(args):
         trainer.optimize_epoch(il_epochs)
         policy.save_model(il_weight_file)
         logging.info('Finish imitation learning. Weights saved.')
-        logging.info('Experience set size: %d/%d', len(pre_memory), pre_memory.capacity)
+        logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
 
     trainer.update_target_model(model)
 
@@ -250,7 +248,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Parse configuration file')
-    parser.add_argument('--policy', type=str, default='model_predictive_rl')
+    parser.add_argument('--policy', type=str, default='lstm_predictive_rl')
     parser.add_argument('--config', type=str, default='configs/icra_benchmark/mp_separate.py')
     parser.add_argument('--output_dir', type=str, default='data/output')
     parser.add_argument('--overwrite', default=False, action='store_true')

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import Parameter
 
 def mlp(input_dim, mlp_dims, last_relu=False):
     layers = []
@@ -25,8 +26,8 @@ class GraphAttentionLayer(nn.Module):
         self.alpha = alpha
         self.concat = concat
 
-        # self.W = nn.Parameter(torch.zeros(size=(in_features, out_features)))
-        # nn.init.xavier_uniform_(self.W.data, gain=1.414)
+        self.W = nn.Parameter(torch.zeros(size=(in_features, out_features)))
+        nn.init.xavier_uniform_(self.W.data, gain=1.414)
         self.a = Parameter(torch.zeros(size=(2*out_features, 1)))
         nn.init.xavier_uniform_(self.a.data, gain=1.414)
 
@@ -38,22 +39,16 @@ class GraphAttentionLayer(nn.Module):
         assert len(input.shape)==3
         assert len(adj.shape)==3
         #map input to h
-        # h = torch.matmul(input, self.W)
-        h=input
-        # print(h)
+        h = torch.matmul(input, self.W)
         N = h.size()[1]
         batch_size= h.size()[0]
-        # h1=h[0,:,:]
-        # h2=h.repeat(1, 1, N).view(batch_size, N * N, -1)
-        # h3=h.repeat(1, N, 1)
         a_input = torch.cat([h.repeat(1, 1, N).view(batch_size, N * N, -1), h.repeat(1, N, 1)], dim=-1).view(batch_size, N, -1, 2 * self.out_features)
         e = self.leakyrelu(torch.matmul(a_input, self.a).squeeze(3))
-        # print(e)
         adj=adj.cpu()
         zero_vec = -9e15*torch.ones_like(e)
         attention = torch.where(adj > 0, e, zero_vec)
         attention = F.softmax(attention, dim=2)
-        # print(attention)
+        attention=F.dropout(attention,self.dropout,training=self.training)
         h_prime = torch.matmul(attention, h)
 
         if self.concat:
@@ -66,22 +61,22 @@ class GAT(nn.Module):
         """Dense version of GAT."""
         super(GAT, self).__init__()
         self.dropout = dropout
-        self.nheads=nheads
+        self.nheads = nheads
         self.attentions = [GraphAttentionLayer(in_feats, hid_feats, dropout=dropout, alpha=alpha, concat=True) for _ in range(self.nheads)]
         for i, attention in enumerate(self.attentions):
             self.add_module('attention_{}'.format(i), attention)
 
-        self.out_att = GraphAttentionLayer(hid_feats * nheads, out_feats, dropout=dropout, alpha=alpha, concat=False)
+        self.out_att = GraphAttentionLayer(hid_feats * self.nheads, out_feats, dropout=dropout, alpha=alpha, concat=False)
 
     def forward(self, x, adj):
         assert len(x.shape)==3
         assert len(adj.shape)==3
-        # x = F.dropout(x, self.dropout, training=self.training)
+        x = F.dropout(x, self.dropout, training=self.training)
         x1= x
         x = torch.cat([att(x, adj) for att in self.attentions], dim=2)
         x = F.dropout(x, self.dropout, training=self.training)
         x = F.elu(self.out_att(x, adj))
-        x=x1+x
-        # x=F.elu(x)
-        return F.log_softmax(x, dim=2)
-        # return x
+        # x=x1+x
+        x=F.elu(x)
+        # return F.log_softmax(x, dim=2)
+        return x

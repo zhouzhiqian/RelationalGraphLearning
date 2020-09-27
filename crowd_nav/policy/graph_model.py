@@ -297,29 +297,31 @@ class LSTM_GAT(nn.Module):
         self.X_dim = X_dim
         self.layerwise_graph = layerwise_graph
         self.skip_connection = skip_connection
-        self.nheads=1
+        self.nheads=2
 
         logging.info('Similarity_func: {}'.format(self.similarity_function))
         logging.info('Layerwise_graph: {}'.format(self.layerwise_graph))
         logging.info('Skip_connection: {}'.format(self.skip_connection))
         logging.info('Number of layers: {}'.format(self.num_layer))
 
-        self.w_r = mlp(robot_state_dim, wr_dims, last_relu=True)
-        self.w_h = mlp(human_state_dim, wh_dims, last_relu=True)
+        self.lstm_r = torch.nn.LSTM(robot_state_dim,32,2,batch_first=False)
+        self.lstm_h = torch.nn.LSTM(human_state_dim,32,2,batch_first=False)
 
-        self.gat = GAT(in_feats=self.X_dim,hid_feats=self.X_dim,out_feats=final_state_dim,dropout=0,alpha=0.2,nheads=self.nheads)
+        self.gat = GAT(in_feats=self.X_dim,hid_feats=self.X_dim,out_feats=final_state_dim,dropout=0.5,alpha=0.0,nheads=self.nheads)
         self.add_module('GAT1',self.gat)
 
-    def compute_adjectory_matrix(self, X):
-        robot_state_seq = X[0]
-        human_state_seq = X[1]
-        robot_num = robot_state_seq.size()[2]
-        human_num = human_state_seq.size()[2]
+    def compute_adjectory_matrix(self, state):
+        robot_state_seq = state[0]
+        robot_state = robot_state_seq[-1]
+        human_state_seq = state[1]
+        human_state = human_state_seq[-1]
+        robot_num = robot_state.size()[1]
+        human_num = human_state.size()[1]
         Num = robot_num + human_num
         adj = torch.ones((Num,Num))
         for i in range(robot_num, robot_num+human_num):
             adj[i][0] = 0
-        adj=adj.repeat(X.size()[0],1,1)
+        adj=adj.repeat(len(robot_state_seq),1,1)
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         adj=adj.to(device)
         return adj
@@ -332,14 +334,25 @@ class LSTM_GAT(nn.Module):
         :return:
         """
         robot_state, human_states = state
-
-        # compute feature matrix X
-        robot_state_embedings = self.w_r(robot_state)
-        human_state_embedings = self.w_h(human_states)
+        adj = self.compute_adjectory_matrix(state)
+        robot_state = robot_state.reshape(robot_state.shape[0], robot_state.shape[1], robot_state.shape[3])
+        robot_state = robot_state.transpose(0, 1)
+        human_states_list = [human_states[:, :, i, :].transpose(0, 1) for i in range(human_states.shape[2])]
+        # compute feature matrix X [0] means the hidden features
+        robot_state_embedings = self.lstm_r(robot_state)[0]
+        # get the last output of lstm seq, batch_size,output_size
+        robot_state_embedings = robot_state_embedings[-1, :, :]
+        robot_state_embedings = robot_state_embedings.reshape(1, robot_state_embedings.shape[0],
+                                                              robot_state_embedings.shape[1])
+        robot_state_embedings = robot_state_embedings.transpose(0, 1)
+        human_state_embedings = []
+        for i in range(len(human_states_list)):
+            if len(human_state_embedings) == 0:
+                human_state_embedings = self.lstm_h(human_states_list[i])[0][-1, :, :].unsqueeze(0)
+            else:
+                tmp_state_embedings = self.lstm_h(human_states_list[i])[0][-1, :, :].unsqueeze(0)
+                human_state_embedings = torch.cat((human_state_embedings, tmp_state_embedings), dim=0)
+        human_state_embedings = human_state_embedings.transpose(0, 1)
         X = torch.cat([robot_state_embedings, human_state_embedings], dim=1)
-        adj = self.compute_adjectory_matrix(X)
-        next_H = self.gat(X,adj)
-
-
-
+        next_H = self.gat(X,adj)+X
         return next_H

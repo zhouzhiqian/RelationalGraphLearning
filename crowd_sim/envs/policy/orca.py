@@ -2,6 +2,7 @@ import numpy as np
 import rvo2
 from crowd_sim.envs.policy.policy import Policy
 from crowd_sim.envs.utils.action import ActionXY
+import torch
 
 
 class ORCA(Policy):
@@ -124,6 +125,19 @@ class ORCA(Policy):
         self.last_state = state
 
         return action
+
+    def transform(self, state):
+        """
+        Take the JointState to tensors
+
+        :param state:
+        :return: tensor of shape (# of agent, len(state))
+        """
+        robot_state_tensor = torch.Tensor([state.robot_state.to_tuple()]).to(self.device)
+        human_states_tensor = torch.Tensor([human_state.to_tuple() for human_state in state.human_states]). \
+            to(self.device)
+
+        return robot_state_tensor, human_states_tensor
 
 
 class CentralizedORCA(ORCA):

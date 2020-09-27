@@ -161,7 +161,7 @@ class MPRLTrainer(object):
         return average_v_loss, average_s_loss
 
 class LSTMRLTrainer(object):
-    def __init__(self, value_estimator, state_predictor, memory, pre_memory,device, policy, writer, batch_size, optimizer_str, human_num,
+    def __init__(self, value_estimator, state_predictor, memory,device, policy, writer, batch_size, optimizer_str, human_num,
                  reduce_sp_update_frequency, freeze_state_predictor, detach_state_predictor, share_graph_model):
         """
         Train the trainable model of a policy
@@ -174,9 +174,8 @@ class LSTMRLTrainer(object):
         self.target_model = None
         self.criterion = nn.MSELoss().to(device)
         self.memory = memory
-        self.pre_memory = pre_memory
         self.data_loader = None
-        self.lstm_data_loader = None
+        self.data_loader = None
         self.batch_size = batch_size
         self.optimizer_str = optimizer_str
         self.reduce_sp_update_frequency = reduce_sp_update_frequency
@@ -218,11 +217,8 @@ class LSTMRLTrainer(object):
     def optimize_epoch(self, num_epochs):
         if self.v_optimizer is None:
             raise ValueError('Learning rate is not set!')
-        # if self.data_loader is None:
-        #     self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
-        if self.lstm_data_loader is None:
-            # self.lstm_data_loader = DataLoader(self.pre_memory,self.batch_size,shuffle=True)
-            self.lstm_data_loader = DataLoader(self.pre_memory, self.batch_size, shuffle=True)
+        if self.data_loader is None:
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
 
         for epoch in range(num_epochs):
             epoch_v_loss = 0
@@ -230,9 +226,7 @@ class LSTMRLTrainer(object):
             logging.debug('{}-th epoch starts'.format(epoch))
 
             update_counter = 0
-            # for data in self.data_loader:
-            #     robot_states, human_states, values, _, _, next_human_states = data
-            for data in self.lstm_data_loader:
+            for data in self.data_loader:
                 history_robot_states, history_human_states, reward, values, predict_robot_states, predict_human_states = data
                 robot_state=history_robot_states[:,-1,:,:]
                 human_states=history_human_states[:,-1,:,:]
@@ -253,29 +247,27 @@ class LSTMRLTrainer(object):
                         self.s_optimizer.zero_grad()
                         _, next_human_states_est = self.state_predictor((history_robot_states,history_human_states),None,detach =self.detach_state_predictor)
                         loss = self.criterion(next_human_states_est, predict_human_states)
-                        # print(loss)
                         loss.backward()
                         self.s_optimizer.step()
                         epoch_s_loss += loss.data.item()
                     update_counter += 1
 
             logging.debug('{}-th epoch ends'.format(epoch))
-            self.writer.add_scalar('IL/epoch_v_loss', epoch_v_loss / len(self.pre_memory), epoch)
-            self.writer.add_scalar('IL/epoch_s_loss', epoch_s_loss / len(self.pre_memory), epoch)
-            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.pre_memory),epoch_s_loss/ len(self.pre_memory))
-
+            self.writer.add_scalar('IL/epoch_v_loss', epoch_v_loss / len(self.memory), epoch)
+            self.writer.add_scalar('IL/epoch_s_loss', epoch_s_loss / len(self.memory), epoch)
+            logging.info('Average v_loss in epoch %d: %.2E, %.2E', epoch, epoch_v_loss / len(self.memory),epoch_s_loss/ len(self.memory))
         return
 
     def optimize_batch(self, num_batches, episode):
         if self.v_optimizer is None:
             raise ValueError('Learning rate is not set!')
-        if self.lstm_data_loader is None:
-            self.lstm_data_loader = DataLoader(self.pre_memory, self.batch_size, shuffle=True)
+        if self.data_loader is None:
+            self.data_loader = DataLoader(self.memory, self.batch_size, shuffle=True)
         v_losses = 0
         s_losses = 0
         batch_count = 0
-        for data in self.lstm_data_loader:
-            history_robot_states, history_human_states, reward, values, predict_robot_states, predict_human_states = data
+        for data in self.data_loader:
+            history_robot_states, history_human_states, reward, values,predict_robot_states,predict_human_states = data
             robot_state = history_robot_states[:, -1, :, :]
             human_states = history_human_states[:, -1, :, :]
             # optimize value estimator
@@ -304,11 +296,6 @@ class LSTMRLTrainer(object):
                     self.s_optimizer.zero_grad()
                     _, next_human_states_est = self.state_predictor((history_robot_states,history_human_states),None,detach =self.detach_state_predictor)
                     loss = self.criterion(next_human_states_est, predict_human_states)
-                    # print(episode)
-                    # print(history_human_states[5,:-1,:,:])
-                    # print(next_human_states_est[5,:,:,:])
-                    # print(predict_human_states[5,:,:,:])
-                    # print(loss)
                     loss.backward()
                     self.s_optimizer.step()
                     s_losses += loss.data.item()

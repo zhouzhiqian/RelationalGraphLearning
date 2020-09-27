@@ -151,13 +151,12 @@ class Explorer(object):
 
 
 class Explorer4LSTM(object):
-    def __init__(self, env, robot, device, writer, memory=None, pre_memory=None, gamma=None, target_policy=None):
+    def __init__(self, env, robot, device, writer, memory=None, gamma=None, target_policy=None):
         self.env = env
         self.robot = robot
         self.device = device
         self.writer = writer
         self.memory = memory
-        self.pre_memory = pre_memory
         self.gamma = gamma
         self.target_policy = target_policy
         self.statistics = None
@@ -256,7 +255,7 @@ class Explorer4LSTM(object):
         return self.statistics
 
     def update_memory(self, states,actions,rewards,imitation_learning=False):
-        if self.pre_memory is None or self.gamma is None:
+        if self.memory is None or self.gamma is None:
             raise ValueError('Predict Memory is not set!')
         for i, state in enumerate(states[:-1]):
             reward = rewards[i]
@@ -290,8 +289,8 @@ class Explorer4LSTM(object):
                     value = 0
             value = torch.Tensor([value]).to(self.device)
             reward = torch.Tensor([rewards[i]]).to(self.device)
-            if self.target_policy.name == 'ModelPredictiveRL':
-                self.pre_memory.push((history_robot_states, history_human_states, reward, value, predict_robot_states,
+            if self.target_policy.name == 'LstmPredictiveRL':
+                self.memory.push((history_robot_states, history_human_states, reward, value, predict_robot_states,
                                       predict_human_states))
             else:
                 self.memory.push((state, value, reward, next_state))

@@ -241,10 +241,12 @@ class LstmPredictiveRL(Policy):
                 action_space_clipped = self.action_clip((self.history_robot_states,self.history_human_states), self.action_space, self.planning_width)
             else:
                 action_space_clipped = self.action_space
-
+            next_state = self.state_predictor((self.history_robot_states,self.history_human_states), ActionXY(0,0),True)
             for action in action_space_clipped:
                 state_tensor = state.to_tensor(add_batch_size=True, device=self.device)
-                next_state = self.state_predictor((self.history_robot_states,self.history_human_states), action,True)
+                next_robot_state = self.compute_next_robot_state(self.history_robot_states[:,-1,:,:],action)
+                next_robot_state = next_robot_state.unsqueeze(1)
+                next_state = (next_robot_state,next_state[1])
                 max_next_return, max_next_traj = self.V_planning(next_state, self.planning_depth, self.planning_width)
                 reward_est = self.estimate_reward(state, action)
                 value = reward_est + self.get_normalized_gamma() * max_next_return
@@ -335,6 +337,24 @@ class LstmPredictiveRL(Policy):
         max_traj = trajs[max_index]
 
         return max_return, max_traj
+
+    def compute_next_robot_state(self, robot_state, action):
+        if robot_state.shape[0] != 1:
+            raise NotImplementedError
+        next_state = robot_state.clone().squeeze()
+        if self.kinematics == 'holonomic':
+            next_state[0] = next_state[0] + action.vx * self.time_step
+            next_state[1] = next_state[1] + action.vy * self.time_step
+            next_state[2] = action.vx
+            next_state[3] = action.vy
+        else:
+            next_state[7] = next_state[7] + action.r
+            next_state[0] = next_state[0] + np.cos(next_state[7]) * action.v * self.time_step
+            next_state[1] = next_state[1] + np.sin(next_state[7]) * action.v * self.time_step
+            next_state[2] = np.cos(next_state[7]) * action.v
+            next_state[3] = np.sin(next_state[7]) * action.v
+        return next_state.unsqueeze(0).unsqueeze(0)
+
     #we should rewrite it
     def estimate_reward(self, state, action):
         """ If the time step is small enough, it's okay to model agent as linear movement during this period
