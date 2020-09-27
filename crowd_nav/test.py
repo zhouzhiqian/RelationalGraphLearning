@@ -6,7 +6,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import gym
-from crowd_nav.utils.explorer import Explorer,Explorer2
+from crowd_nav.utils.explorer import Explorer,Explorer4LSTM
 from crowd_nav.policy.policy_factory import policy_factory
 from crowd_sim.envs.utils.robot import Robot
 from crowd_sim.envs.policy.orca import ORCA
@@ -50,6 +50,7 @@ def main(args):
 
     # configure policy
     policy_config = config.PolicyConfig(args.debug)
+    policy_config.name='lstm_predictive_rl'
     policy = policy_factory[policy_config.name]()
     if args.planning_depth is not None:
         policy_config.model_predictive_rl.do_action_clip = True
@@ -61,6 +62,7 @@ def main(args):
         policy_config.model_predictive_rl.sparse_search = True
 
     policy.configure(policy_config)
+    print(policy.name)
     if policy.trainable:
         if args.model_dir is None:
             parser.error('Trainable policy must be specified with a model weights directory')
@@ -85,7 +87,8 @@ def main(args):
     env.set_robot(robot)
     robot.time_step = env.time_step
     robot.set_policy(policy)
-    explorer = Explorer2(env, robot, device, None, gamma=0.9)
+    print(robot.policy)
+    explorer = Explorer4LSTM(env, robot, device, None, gamma=0.9)
 
     train_config = config.TrainConfig(args.debug)
     epsilon_end = train_config.train.epsilon_end
@@ -148,7 +151,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Parse configuration file')
     parser.add_argument('--config', type=str, default=None)
-    parser.add_argument('--policy', type=str, default='model_predictive_rl')
+    parser.add_argument('--policy', type=str, default='lstm_predictive_rl')
     parser.add_argument('-m', '--model_dir', type=str, default=None)
     parser.add_argument('--il', default=False, action='store_true')
     parser.add_argument('--rl', default=False, action='store_true')
@@ -158,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--test_case', type=int, default=None)
     parser.add_argument('--square', default=False, action='store_true')
     parser.add_argument('--circle', default=False, action='store_true')
-    parser.add_argument('--video_file', type=str, default='ildemo')
+    parser.add_argument('--video_file', type=str, default=None)
     parser.add_argument('--video_dir', type=str, default=None)
     parser.add_argument('--traj', default=False, action='store_true')
     parser.add_argument('--debug', default=False, action='store_true')
@@ -174,4 +177,6 @@ if __name__ == '__main__':
     # sys_args.il=True
     # sys_args.test_case=2
     # sys_args.gpu=False
+    sys_args.policy = 'lstm_predictive_rl'
+    print(sys_args.policy)
     main(sys_args)

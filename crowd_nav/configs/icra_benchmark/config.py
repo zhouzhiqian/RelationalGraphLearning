@@ -15,8 +15,8 @@ class BaseEnvConfig(object):
     env = Config()
     env.time_limit = 30
     env.time_step = 0.25
-    env.val_size = 50
-    env.test_size = 50
+    env.val_size = 500
+    env.test_size = 500
     env.train_size = np.iinfo(np.uint32).max - 2000
     env.randomize_attributes = False
     env.robot_sensor_range = 5
@@ -132,9 +132,9 @@ class BaseTrainConfig(object):
     trainer.optimizer = 'Adam'
 
     imitation_learning = Config()
-    imitation_learning.il_episodes = 20#2000
+    imitation_learning.il_episodes = 2000#2000
     imitation_learning.il_policy = 'orca'
-    imitation_learning.il_epochs = 10
+    imitation_learning.il_epochs = 50
     imitation_learning.il_learning_rate = 0.001
     imitation_learning.safety_space = 0.15
 
@@ -144,8 +144,8 @@ class BaseTrainConfig(object):
     # number of batches to train at the end of training episode il_episodes
     train.train_batches = 100
     # training episodes in outer loop
-    train.train_episodes = 10000
-    train.history_length = 4
+    train.train_episodes = 5000
+    train.history_length = 2
     train.predict_length = 1
     # number of episodes sampled in one training episode
     train.sample_episodes = 1
@@ -153,10 +153,10 @@ class BaseTrainConfig(object):
     train.evaluation_interval = 1000
     # the memory pool can roughly store 2K episodes, total size = episodes * 50
     train.capacity = 100000
-    train.epsilon_start = 0.5
+    train.epsilon_start = 0.3
     train.epsilon_end = 0.1
-    train.epsilon_decay = 4000
-    train.checkpoint_interval = 1000
+    train.epsilon_decay = 2000
+    train.checkpoint_interval = 500
 
     train.train_with_pretend_batch = False
 

@@ -14,7 +14,7 @@ from crowd_sim.envs.utils.robot import Robot
 from crowd_nav.utils.trainer import VNRLTrainer, MPRLTrainer, LSTMRLTrainer
 from crowd_nav.utils.memory import ReplayMemory
 from crowd_nav.utils.explorer import Explorer
-from crowd_nav.utils.explorer import Explorer2
+from crowd_nav.utils.explorer import Explorer4LSTM
 from crowd_nav.policy.policy_factory import policy_factory
 
 
@@ -120,16 +120,16 @@ def main(args):
     model = policy.get_model()
     batch_size = train_config.trainer.batch_size
     optimizer = train_config.trainer.optimizer
-    test_flag=False
+    # test_flag=False
     if policy_config.name == 'model_predictive_rl':
-        if test_flag==True:
-            trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
-                                  reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
-                                  freeze_state_predictor=train_config.train.freeze_state_predictor,
-                                  detach_state_predictor=train_config.train.detach_state_predictor,
-                                  share_graph_model=policy_config.model_predictive_rl.share_graph_model)
+        # if test_flag==True:
+        #     trainer = MPRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
+        #                           reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
+        #                           freeze_state_predictor=train_config.train.freeze_state_predictor,
+        #                           detach_state_predictor=train_config.train.detach_state_predictor,
+        #                           share_graph_model=policy_config.model_predictive_rl.share_graph_model)
     # elif policy_config.name == 'lstm_predictive_rl':
-        trainer2 = LSTMRLTrainer(model, policy.state_predictor, memory,pre_memory, device, policy, writer, batch_size, optimizer, env.human_num,
+        trainer = LSTMRLTrainer(model, policy.state_predictor, memory, device, policy, writer, batch_size, optimizer, env.human_num,
                                 reduce_sp_update_frequency=train_config.train.reduce_sp_update_frequency,
                                 freeze_state_predictor=train_config.train.freeze_state_predictor,
                                 detach_state_predictor=train_config.train.detach_state_predictor,
@@ -137,7 +137,7 @@ def main(args):
     else:
         trainer = VNRLTrainer(model, memory, device, policy, batch_size, optimizer, writer)
     # explorer = Explorer(env, robot, device, writer, memory, policy.gamma, target_policy=policy)
-    explorer2= Explorer2(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
+    explorer= Explorer4LSTM(env,robot,device,writer,memory,pre_memory,policy.gamma,target_policy=policy)
 
     # imitation learning
     if args.resume:
@@ -155,9 +155,9 @@ def main(args):
         print("rl_policy is ",il_policy)
         il_epochs = train_config.imitation_learning.il_epochs
         il_learning_rate = train_config.imitation_learning.il_learning_rate
-        if test_flag==True:
-            trainer.set_learning_rate(il_learning_rate)
-        trainer2.set_learning_rate(il_learning_rate)
+        # if test_flag==True:
+        #     trainer.set_learning_rate(il_learning_rate)
+        trainer.set_learning_rate(il_learning_rate)
         if robot.visible:
             safety_space = 0
         else:
@@ -167,16 +167,15 @@ def main(args):
         il_policy.safety_space = safety_space
         # now, the policy of robot is ORCA
         robot.set_policy(il_policy)
-        # explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
-        explorer2.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
-        if test_flag == True:
-            trainer.optimize_epoch(il_epochs)
-        trainer2.optimize_epoch(il_epochs)
+        explorer.run_k_episodes(il_episodes, 'train', update_memory=True, imitation_learning=True)
+        # if test_flag == True:
+        #     trainer.optimize_epoch(il_epochs)
+        trainer.optimize_epoch(il_epochs)
         policy.save_model(il_weight_file)
         logging.info('Finish imitation learning. Weights saved.')
         logging.info('Experience set size: %d/%d', len(pre_memory), pre_memory.capacity)
 
-    trainer2.update_target_model(model)
+    trainer.update_target_model(model)
 
     # reinforcement learning
     policy.set_env(env)
@@ -187,21 +186,21 @@ def main(args):
     # fill the memory pool with some RL experience
     if args.resume:
         robot.policy.set_epsilon(epsilon_end)
-        explorer2.run_k_episodes(100, 'train', update_memory=True, episode=0)
+        explorer.run_k_episodes(100, 'train', update_memory=True, episode=0)
         logging.info('Experience set size: %d/%d', len(memory), memory.capacity)
     episode = 1
     best_val_reward = -1
     best_val_model = None
     # evaluate the model after imitation learning
-    trainer2.set_learning_rate(rl_learning_rate)
+    trainer.set_learning_rate(rl_learning_rate)
     if episode % evaluation_interval == 0:
         logging.info('Evaluate the model instantly after imitation learning on the validation cases')
-        explorer2.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-        explorer2.log('val', episode // evaluation_interval)
+        explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+        explorer.log('val', episode // evaluation_interval)
 
         if args.test_after_every_eval:
-            explorer2.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
-            explorer2.log('test', episode // evaluation_interval)
+            explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+            explorer.log('test', episode // evaluation_interval)
 
     episode = 1
 
@@ -216,25 +215,25 @@ def main(args):
         robot.policy.set_epsilon(epsilon)
 
         # sample k episodes into memory and optimize over the generated memory
-        explorer2.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
-        explorer2.log('train', episode)
-        trainer2.optimize_batch(train_batches, episode)
+        explorer.run_k_episodes(sample_episodes, 'train', update_memory=True, episode=episode)
+        explorer.log('train', episode)
+        trainer.optimize_batch(train_batches, episode)
         episode += 1
 
         if episode % target_update_interval == 0:
-            trainer2.update_target_model(model)
+            trainer.update_target_model(model)
         # evaluate the model
         if episode % evaluation_interval == 0:
-            _, _, _, reward, _ = explorer2.run_k_episodes(env.case_size['val'], 'val', episode=episode)
-            explorer2.log('val', episode // evaluation_interval)
+            _, _, _, reward, _ = explorer.run_k_episodes(env.case_size['val'], 'val', episode=episode)
+            explorer.log('val', episode // evaluation_interval)
 
             if episode % checkpoint_interval == 0 and reward > best_val_reward:
                 best_val_reward = reward
                 best_val_model = copy.deepcopy(policy.get_state_dict())
         # test after every evaluation to check how the generalization performance evolves
             if args.test_after_every_eval:
-                explorer2.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
-                explorer2.log('test', episode // evaluation_interval)
+                explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+                explorer.log('test', episode // evaluation_interval)
 
         if episode != 0 and episode % checkpoint_interval == 0:
             current_checkpoint = episode // checkpoint_interval - 1
@@ -246,7 +245,7 @@ def main(args):
         policy.load_state_dict(best_val_model)
         torch.save(best_val_model, os.path.join(args.output_dir, 'best_val.pth'))
         logging.info('Save the best val model with the reward: {}'.format(best_val_reward))
-    explorer2.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
+    explorer.run_k_episodes(env.case_size['test'], 'test', episode=episode, print_failure=True)
 
 
 if __name__ == '__main__':
