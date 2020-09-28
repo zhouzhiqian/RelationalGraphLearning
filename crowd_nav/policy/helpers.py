@@ -65,24 +65,24 @@ class GAT(nn.Module):
         super(GAT, self).__init__()
         self.dropout = dropout
         self.nheads = nheads
-        self.attentions = [GraphAttentionLayer(in_feats, hid_feats, dropout=dropout, alpha=alpha, concat=True) for _ in range(self.nheads)]
-        for i, attention in enumerate(self.attentions):
-            self.add_module('attention_{}'.format(i), attention)
+        # self.attentions = [GraphAttentionLayer(in_feats, hid_feats, dropout=dropout, alpha=alpha, concat=True) for _ in range(self.nheads)]
+        # for i, attention in enumerate(self.attentions):
+        #     self.add_module('attention_{}'.format(i), attention)
 
-        self.out_att = GraphAttentionLayer(hid_feats * self.nheads, out_feats, dropout=dropout, alpha=alpha, concat=False)
+        self.out_att = GraphAttentionLayer(in_feats, out_feats, dropout=dropout, alpha=alpha, concat=False)
         self.add_module('out_gat', self.out_att)
 
     def forward(self, x, adj):
         assert len(x.shape)==3
         assert len(adj.shape)==3
-        x = F.dropout(x, self.dropout, training=self.training)
-        x1= x
-        x = torch.cat([att(x, adj) for att in self.attentions], dim=2)
+        # x = F.dropout(x, self.dropout, training=self.training)
+        # x1= x
+        # x = torch.cat([att(x, adj) for att in self.attentions], dim=2)
         x = F.dropout(x, self.dropout, training=self.training)
         x = F.elu(self.out_att(x, adj))
         # x=x1+x
         x=F.elu(x)
-        return F.log_softmax(x, dim=2)
+        return x
         # return x
 from typing import Union, Tuple, Optional
 from torch_geometric.typing import (OptPairTensor, Adj, Size, NoneType,
