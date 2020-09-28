@@ -456,27 +456,26 @@ class LstmPredictiveRL(Policy):
                 dmin = closest_dist
 
             # check if reaching the goal
-            if self.kinematics == 'holonomic':
-                px = robot_state.px + robot_vx * self.time_step
-                py = robot_state.py + robot_vy * self.time_step
-            else:
-                px = robot_state.px + robot_vx * self.time_step
-                py = robot_state.py + robot_vy * self.time_step
+        if self.kinematics == 'holonomic':
+            px = robot_state.px + robot_vx * self.time_step
+            py = robot_state.py + robot_vy * self.time_step
+        else:
+            px = robot_state.px + robot_vx * self.time_step
+            py = robot_state.py + robot_vy * self.time_step
 
-            end_position = np.array((px, py))
-            reaching_goal = norm(end_position - np.array([robot_state.gx, robot_state.gy])) < robot_state.radius
+        end_position = np.array((px, py))
+        reaching_goal = norm(end_position - np.array([robot_state.gx, robot_state.gy])) < robot_state.radius
 
-            if collision:
-                reward = -0.25
-            elif reaching_goal:
-                reward = 1
-            elif dmin < 0.2:
-                # adjust the reward based on FPS
-                reward = (dmin - 0.2) * 0.5 * self.time_step
-            else:
-                reward = 0
-
-            return reward
+        if collision:
+           reward = -0.25
+        elif reaching_goal:
+             reward = 1
+        elif dmin < 0.2:
+        # adjust the reward based on FPS
+            reward = (dmin - 0.2) * 0.5 * self.time_step
+        else:
+            reward = 0
+        return reward
 
     def transform(self, state):
         """
