@@ -6,6 +6,8 @@ from torch.nn.functional import softmax, relu
 from torch.nn import Parameter
 from crowd_nav.policy.helpers import mlp
 from crowd_nav.policy.helpers import GAT
+from crowd_nav.policy.helpers import GATConv
+
 
 class RGL(nn.Module):
     def __init__(self, config, robot_state_dim, human_state_dim):
@@ -309,6 +311,7 @@ class LSTM_GAT(nn.Module):
 
         self.gat = GAT(in_feats=self.X_dim,hid_feats=self.X_dim,out_feats=final_state_dim,dropout=0.5,alpha=0.0,nheads=self.nheads)
         self.add_module('GAT1',self.gat)
+        # self.gat2 = GATConv(in_channels=self.X_dim,out_channels=self.X_dim,heads=1,concat=True)
 
     def compute_adjectory_matrix(self, state):
         robot_state_seq = state[0]
@@ -325,6 +328,28 @@ class LSTM_GAT(nn.Module):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         adj=adj.to(device)
         return adj
+        return adj
+
+    def compute_edge_index(self, state):
+        robot_state_seq = state[0]
+        robot_state = robot_state_seq[-1]
+        human_state_seq = state[1]
+        human_state = human_state_seq[-1]
+        robot_num = robot_state.size()[1]
+        human_num = human_state.size()[1]
+        x=[]
+        y=[]
+        for i in range(robot_num):
+            for j in range(robot_num+human_num):
+                x.append(i)
+                y.append(j)
+        for i in range(robot_num,robot_num+human_num):
+            for j in range(robot_num,robot_num+human_num):
+                x.append(i)
+                y.append(j)
+        edge_index = torch.tensor([x,y], dtype=torch.long)
+        edge_index = edge_index.repeat(len(robot_state_seq),1,1)
+        return edge_index
 
     def forward(self, state):
         """
@@ -335,6 +360,7 @@ class LSTM_GAT(nn.Module):
         """
         robot_state, human_states = state
         adj = self.compute_adjectory_matrix(state)
+        edge_index = self.compute_adjectory_matrix(state)
         robot_state = robot_state.reshape(robot_state.shape[0], robot_state.shape[1], robot_state.shape[3])
         robot_state = robot_state.transpose(0, 1)
         human_states_list = [human_states[:, :, i, :].transpose(0, 1) for i in range(human_states.shape[2])]
@@ -354,5 +380,14 @@ class LSTM_GAT(nn.Module):
                 human_state_embedings = torch.cat((human_state_embedings, tmp_state_embedings), dim=0)
         human_state_embedings = human_state_embedings.transpose(0, 1)
         X = torch.cat([robot_state_embedings, human_state_embedings], dim=1)
+        next_H = []
+        # for i in range(len(X)):
+        #     if len(next_H)==0:
+        #         next_H=self.gat2(X[i],edge_index[i]).unsqueeze(dim=0)
+        #     else:
+        #         next_H = torch.cat((next_H,self.gat2(X[i],edge_index[i]).unsqueeze(dim=0)),dim=0)
+        # next_H =[self.gat2(X[i,:,:],edge_index[i,:,:]) for i in range(len(X))]
         next_H = self.gat(X,adj)+X
+        # # next_H = self.gat2(X,edge_index)
+        # next_H = next_H + X
         return next_H
