@@ -326,7 +326,7 @@ class LstmPredictiveRL(Policy):
             # next_state_est = self.state_predictor(state, action)
             next_state_est = self.state_predictor(states, action)
             # reward_est = self.estimate_reward(state, action)
-            reward_est = self.estimate_reward(state, next_state_est)
+            reward_est = self.estimate_reward2(state, next_state_est)
             exp_states = (torch.cat((history_robot_states[:, 1:, :, :], next_state_est[0]), dim=1),
                           torch.cat((history_human_states[:, 1:, :, :], next_state_est[1]), dim=1))
             next_value, next_traj = self.V_planning(exp_states, depth - 1, self.planning_width)
@@ -419,8 +419,10 @@ class LstmPredictiveRL(Policy):
         """ If the time step is small enough, it's okay to model agent as linear movement during this period
         """
         # collision detection
+        next_state = (next_state[0].squeeze(-3),next_state[1].squeeze(-3))
         if isinstance(state, list) or isinstance(state, tuple):
             state = tensor_to_joint_state(state)
+        if isinstance(next_state, list) or isinstance(next_state, tuple):
             next_state = tensor_to_joint_state(next_state)
         human_states = state.human_states
         robot_state = state.robot_state
