@@ -273,8 +273,8 @@ class CrowdSim(gym.Env):
             px = human.px - self.robot.px
             py = human.py - self.robot.py
             if self.robot.kinematics == 'holonomic':
-                vx = human.vx - action.vx
-                vy = human.vy - action.vy
+                vx = human.vx - human_actions[i].vx
+                vy = human.vy - human_actions[i].vy
             else:
                 vx = human.vx - action.v * np.cos(action.r + self.robot.theta)
                 vy = human.vy - action.v * np.sin(action.r + self.robot.theta)
