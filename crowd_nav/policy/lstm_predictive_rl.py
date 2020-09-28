@@ -248,7 +248,8 @@ class LstmPredictiveRL(Policy):
                 next_robot_state = next_robot_state.unsqueeze(1)
                 next_state = (next_robot_state,next_state[1])
                 max_next_return, max_next_traj = self.V_planning(next_state, self.planning_depth, self.planning_width)
-                reward_est = self.estimate_reward(state, action)
+                # reward_est = self.estimate_reward(state, action)
+                reward_est = self.estimate_reward2(state, next_state)
                 value = reward_est + self.get_normalized_gamma() * max_next_return
                 if value > max_value:
                     max_value = value
@@ -277,7 +278,8 @@ class LstmPredictiveRL(Policy):
             exp_states = (torch.cat((history_robot_states[:, 1:, :, :], next_state_est[0]), dim=1),
                           torch.cat((history_human_states[:, 1, :, :], next_state_est[1]), dim=1))
             next_return, _ = self.V_planning(exp_states, depth, width)
-            reward_est = self.estimate_reward(state, action)
+            # reward_est = self.estimate_reward(state, action)
+            reward_est = self.estimate_reward(state, next_state_est)
             value = reward_est + self.get_normalized_gamma() * next_return
             values.append(value)
 
@@ -323,7 +325,8 @@ class LstmPredictiveRL(Policy):
         for action in action_space_clipped:
             # next_state_est = self.state_predictor(state, action)
             next_state_est = self.state_predictor(states, action)
-            reward_est = self.estimate_reward(state, action)
+            # reward_est = self.estimate_reward(state, action)
+            reward_est = self.estimate_reward(state, next_state_est)
             exp_states = (torch.cat((history_robot_states[:, 1:, :, :], next_state_est[0]), dim=1),
                           torch.cat((history_human_states[:, 1:, :, :], next_state_est[1]), dim=1))
             next_value, next_traj = self.V_planning(exp_states, depth - 1, self.planning_width)
@@ -410,6 +413,68 @@ class LstmPredictiveRL(Policy):
             reward = 0
 
         return reward
+
+        # we should rewrite it
+    def estimate_reward2(self, state, next_state):
+        """ If the time step is small enough, it's okay to model agent as linear movement during this period
+        """
+        # collision detection
+        if isinstance(state, list) or isinstance(state, tuple):
+            state = tensor_to_joint_state(state)
+            next_state = tensor_to_joint_state(next_state)
+        human_states = state.human_states
+        robot_state = state.robot_state
+        next_human_state = next_state.human_states
+        next_robot_state = next_state.robot_state
+        robot_vx = (next_robot_state.px - robot_state.px) / self.time_step
+        robot_vy = (next_robot_state.py - robot_state.py) / self.time_step
+        dmin = float('inf')
+        collision = False
+        for i, human in enumerate(human_states):
+            predict_human = next_human_state[i]
+            human_vx = (human.px - predict_human.px) / self.time_step
+            human_vy = (human.py - predict_human.py) / self.time_step
+            px = human.px - robot_state.px
+            py = human.py - robot_state.py
+            if self.kinematics == 'holonomic':
+                vx = human_vx - robot_vx
+                vy = human_vy - robot_vy
+            else:
+                vx = human_vx - robot_vx
+                vy = human_vy - robot_vy
+
+            ex = px + vx * self.time_step
+            ey = py + vy * self.time_step
+            # closest distance between boundaries of two agents
+            closest_dist = point_to_segment_dist(px, py, ex, ey, 0, 0) - human.radius - robot_state.radius
+            if closest_dist < 0:
+                collision = True
+                break
+            elif closest_dist < dmin:
+                dmin = closest_dist
+
+            # check if reaching the goal
+            if self.kinematics == 'holonomic':
+                px = robot_state.px + robot_vx * self.time_step
+                py = robot_state.py + robot_vy * self.time_step
+            else:
+                px = robot_state.px + robot_vx * self.time_step
+                py = robot_state.py + robot_vy * self.time_step
+
+            end_position = np.array((px, py))
+            reaching_goal = norm(end_position - np.array([robot_state.gx, robot_state.gy])) < robot_state.radius
+
+            if collision:
+                reward = -0.25
+            elif reaching_goal:
+                reward = 1
+            elif dmin < 0.2:
+                # adjust the reward based on FPS
+                reward = (dmin - 0.2) * 0.5 * self.time_step
+            else:
+                reward = 0
+
+            return reward
 
     def transform(self, state):
         """
