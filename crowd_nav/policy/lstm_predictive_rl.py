@@ -323,7 +323,6 @@ class LstmPredictiveRL(Policy):
         trajs = []
 
         for action in action_space_clipped:
-            # next_state_est = self.state_predictor(state, action)
             next_state_est = self.state_predictor(states, action)
             # reward_est = self.estimate_reward(state, action)
             reward_est = self.estimate_reward2(state, next_state_est)

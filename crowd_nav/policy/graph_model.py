@@ -309,7 +309,7 @@ class LSTM_GAT(nn.Module):
         self.lstm_r = torch.nn.LSTM(robot_state_dim,32,2,batch_first=False)
         self.lstm_h = torch.nn.LSTM(human_state_dim,32,2,batch_first=False)
 
-        self.gat = GAT(in_feats=self.X_dim,hid_feats=2*self.X_dim,out_feats=final_state_dim,dropout=0.5,alpha=0.0,nheads=self.nheads)
+        self.gat = GAT(in_feats=self.X_dim,hid_feats=2*self.X_dim,out_feats=final_state_dim,dropout=0.0,alpha=-0.2,nheads=self.nheads)
         self.add_module('GAT1',self.gat)
         # self.gat2 = GATConv(in_channels=self.X_dim,out_channels=self.X_dim,heads=1,concat=True)
 

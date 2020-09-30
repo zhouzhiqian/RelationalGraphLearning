@@ -174,8 +174,8 @@ if __name__ == '__main__':
     parser.add_argument('--sparse_search', default=False, action='store_true')
 
     sys_args = parser.parse_args()
-    sys_args.il=True
-    sys_args.test_case=2
+    # sys_args.il=True
+    # sys_args.test_case=2
     # sys_args.gpu=False
     print(sys_args.policy)
     main(sys_args)

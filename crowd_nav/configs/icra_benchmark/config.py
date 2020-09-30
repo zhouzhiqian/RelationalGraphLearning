@@ -134,7 +134,7 @@ class BaseTrainConfig(object):
     imitation_learning = Config()
     imitation_learning.il_episodes = 2000#2000
     imitation_learning.il_policy = 'orca'
-    imitation_learning.il_epochs = 50
+    imitation_learning.il_epochs = 20
     imitation_learning.il_learning_rate = 0.001
     imitation_learning.safety_space = 0.15
 
@@ -149,8 +149,8 @@ class BaseTrainConfig(object):
     train.predict_length = 1
     # number of episodes sampled in one training episode
     train.sample_episodes = 1
-    train.target_update_interval = 1000
-    train.evaluation_interval = 1000
+    train.target_update_interval = 500
+    train.evaluation_interval = 500
     # the memory pool can roughly store 2K episodes, total size = episodes * 50
     train.capacity = 100000
     train.epsilon_start = 0.3
