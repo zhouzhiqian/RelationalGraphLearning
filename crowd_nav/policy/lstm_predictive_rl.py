@@ -248,8 +248,8 @@ class LstmPredictiveRL(Policy):
                 next_robot_state = next_robot_state.unsqueeze(1)
                 next_state = (next_robot_state,next_state[1])
                 max_next_return, max_next_traj = self.V_planning(next_state, self.planning_depth, self.planning_width)
-                # reward_est = self.estimate_reward(state, action)
-                reward_est = self.estimate_reward2(state, next_state)
+                reward_est = self.estimate_reward(state, action)
+                # reward_est = self.estimate_reward2(state, next_state)
                 value = reward_est + self.get_normalized_gamma() * max_next_return
                 if value > max_value:
                     max_value = value
@@ -278,8 +278,8 @@ class LstmPredictiveRL(Policy):
             exp_states = (torch.cat((history_robot_states[:, 1:, :, :], next_state_est[0]), dim=1),
                           torch.cat((history_human_states[:, 1, :, :], next_state_est[1]), dim=1))
             next_return, _ = self.V_planning(exp_states, depth, width)
-            # reward_est = self.estimate_reward(state, action)
-            reward_est = self.estimate_reward2(state, next_state_est)
+            reward_est = self.estimate_reward(state, action)
+            # reward_est = self.estimate_reward2(state, next_state_est)
             value = reward_est + self.get_normalized_gamma() * next_return
             values.append(value)
 
@@ -324,8 +324,8 @@ class LstmPredictiveRL(Policy):
 
         for action in action_space_clipped:
             next_state_est = self.state_predictor(states, action)
-            # reward_est = self.estimate_reward(state, action)
-            reward_est = self.estimate_reward2(state, next_state_est)
+            reward_est = self.estimate_reward(state, action)
+            # reward_est = self.estimate_reward2(state, next_state_est)
             exp_states = (torch.cat((history_robot_states[:, 1:, :, :], next_state_est[0]), dim=1),
                           torch.cat((history_human_states[:, 1:, :, :], next_state_est[1]), dim=1))
             next_value, next_traj = self.V_planning(exp_states, depth - 1, self.planning_width)
@@ -433,8 +433,8 @@ class LstmPredictiveRL(Policy):
         collision = False
         for i, human in enumerate(human_states):
             predict_human = next_human_state[i]
-            human_vx = (human.px - predict_human.px) / self.time_step
-            human_vy = (human.py - predict_human.py) / self.time_step
+            human_vx = (predict_human.px - human.px ) / self.time_step
+            human_vy = (predict_human.py - human.py ) / self.time_step
             px = human.px - robot_state.px
             py = human.py - robot_state.py
             if self.kinematics == 'holonomic':
