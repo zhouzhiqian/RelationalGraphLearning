@@ -70,7 +70,7 @@ class LstmPredictiveRL(Policy):
                 self.state_predictor = LstmPredictor(config, graph_model, self.time_step)
                 self.model = [graph_model, self.value_estimator.value_network, self.state_predictor.human_motion_predictor]
             else:
-                graph_model1 = RGL(config, self.robot_state_dim, self.human_state_dim)
+                graph_model1 = LSTM_GAT(config, self.robot_state_dim, self.human_state_dim)
                 self.value_estimator = ValueEstimator(config, graph_model1)
                 graph_model2 = LSTM_GAT(config, self.robot_state_dim, self.human_state_dim)
                 graph_model2.parameters()
