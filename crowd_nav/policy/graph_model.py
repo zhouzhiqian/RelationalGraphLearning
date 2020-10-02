@@ -6,7 +6,7 @@ from torch.nn.functional import softmax, relu
 from torch.nn import Parameter
 from crowd_nav.policy.helpers import mlp
 from crowd_nav.policy.helpers import GAT
-from crowd_nav.policy.helpers import GATConv
+# from crowd_nav.policy.helpers import GATConv
 
 
 class RGL(nn.Module):
