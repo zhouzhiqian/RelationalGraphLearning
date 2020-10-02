@@ -310,7 +310,7 @@ class LstmPredictiveRL(Policy):
         history_robot_states=states[0]
         history_human_states=states[1]
         state = (history_robot_states[:,-1,:,:],history_human_states[:,-1,:,:])
-        current_state_value = self.value_estimator(state)
+        current_state_value = self.value_estimator(states)
         if depth == 1:
             return current_state_value, [(state, None, None)]
         #then depth of action_space is 1

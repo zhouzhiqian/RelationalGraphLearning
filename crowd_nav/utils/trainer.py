@@ -273,11 +273,11 @@ class LSTMRLTrainer(object):
             human_states = history_human_states[:, -1, :, :]
             # optimize value estimator
             self.v_optimizer.zero_grad()
-            outputs = self.value_estimator((robot_state, human_states))
+            outputs = self.value_estimator((history_robot_states, history_human_states))
 
             # optimize value estimator
             gamma_bar = pow(self.gamma, self.time_step * self.v_pref)
-            target_values = reward + gamma_bar * self.target_model((predict_robot_states[:,0,:,:], predict_human_states[:,0,:,:]))
+            target_values = reward + gamma_bar * self.target_model((torch.cat((history_robot_states[:,1:,:,:],predict_robot_states),dim=1), torch.cat((history_human_states[:,1:,:,:],predict_human_states),dim=1)))
             # values = values.to(self.device)
 
             loss = self.criterion(outputs, target_values)
