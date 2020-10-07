@@ -328,7 +328,6 @@ class LSTM_GAT(nn.Module):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         adj=adj.to(device)
         return adj
-        return adj
 
     def compute_edge_index(self, state):
         robot_state_seq = state[0]

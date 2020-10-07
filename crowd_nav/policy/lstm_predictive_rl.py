@@ -247,7 +247,9 @@ class LstmPredictiveRL(Policy):
                 next_robot_state = self.compute_next_robot_state(self.history_robot_states[:,-1,:,:],action)
                 next_robot_state = next_robot_state.unsqueeze(1)
                 next_state = (next_robot_state,next_state[1])
-                max_next_return, max_next_traj = self.V_planning(next_state, self.planning_depth, self.planning_width)
+                next_state_seq = (torch.cat((self.history_robot_states[:,1:,:,:],next_state[0]),dim=1),
+                                  torch.cat((self.history_human_states[:,1:,:,:],next_state[1]),dim=1))
+                max_next_return, max_next_traj = self.V_planning(next_state_seq, self.planning_depth, self.planning_width)
                 reward_est = self.estimate_reward(state, action)
                 # reward_est = self.estimate_reward2(state, next_state)
                 value = reward_est + self.get_normalized_gamma() * max_next_return
